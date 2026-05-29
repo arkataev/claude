@@ -2,6 +2,8 @@
 ## Workflow & Skills
 Typical pipeline:
 **Behavior** (`/bdd`) → **Design** (`/design`) → **Test → Implement** (`/tdd`) → **Refactor** (`/refactoring`) → **Coverage** (`/review`)
+
+### Pipeline & quality passes
 | Skill | When to invoke |
 |---|---|
 | `/bdd` | New features — define behavior in Gherkin, then derive tests. |
@@ -9,9 +11,19 @@ Typical pipeline:
 | `/tdd` | Implementation — strict red → green → refactor → lint cycle, one behavior at a time. |
 | `/refactoring` | Existing code — audit + targeted fix. Standalone or after `/tdd` reveals drift. References `/design` for target shape. |
 | `/review` | Coverage gap audit between scenarios and tests. |
+| `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |
+
+### Behavior modes
+| Skill | When to invoke |
+|---|---|
 | `/coach` | Guidance-only mode for design coaching, interview prep, and learning. No file edits; user drives implementation. |
 | `/short` | Terse, code-first answers to "how do I X in Y" questions. For live-coding and quick reference. Complements `/coach`. |
+
+### Tooling
+| Skill | When to invoke |
+|---|---|
 | `/dockerize` | Scaffold Docker setup — Dockerfile, docker-compose, env vars, Makefile targets. |
+
 Feature files are human-readable specifications — NOT wired to test runners (no pytest-bdd, no behave). They guide test writing.
 
 **Coach vs builder default.** Read context cues. If the user is asking design questions ("should I...?", "what are the trade-offs?", "what's wrong with this approach?"), doing interview prep, or learning a new topic, default to **guidance** — short snippets inline, push back with questions, let them drive implementation. Don't reach for Write/Edit unless they explicitly ask. For sustained coaching sessions, `/coach` makes this mode explicit.
