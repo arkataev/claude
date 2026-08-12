@@ -1,4 +1,5 @@
 ---
+name: bdd
 description: Define feature scenarios and derive tests from them using BDD → TDD workflow
 user_invocable: true
 argument: Feature or behavior to specify
