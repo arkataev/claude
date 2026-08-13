@@ -23,6 +23,7 @@ Typical pipeline:
 | Skill | When to invoke |
 |---|---|
 | `/dockerize` | Scaffold Docker setup — Dockerfile, docker-compose, env vars, Makefile targets. |
+| `/anki` | Sync `problem-library.md` entries into Anki flashcards via AnkiConnect. |
 
 Feature files are human-readable specifications — NOT wired to test runners (no pytest-bdd, no behave). They guide test writing.
 
