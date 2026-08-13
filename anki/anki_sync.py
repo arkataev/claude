@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Sync problem-library.md entries into Anki flashcards via AnkiConnect.
+"""Sync problem-library entries into Anki flashcards via AnkiConnect.
 
 Deterministic counterpart to the /anki skill's manual process: parses every
 `## <title>` entry once and uploads it in a single pass, instead of Claude
-issuing one curl call per card per run.
+issuing one curl call per card per run. Library source may be a single
+markdown file or a directory of grouped ones (written by /problem-library).
 """
 import argparse
 import json
@@ -15,6 +16,9 @@ from pathlib import Path
 
 DEFAULT_URL = "http://localhost:8765"
 DEFAULT_DECK = "Problem Library"
+DEFAULT_LIBRARY_PATH = (
+    Path.home() / "Google Drive" / "My Drive" / "Claude Knowledge" / "problem-library"
+)
 
 SYMPTOM_RE = re.compile(r"\*\*Symptom:\*\*\s*(.+)")
 REACH_FOR_RE = re.compile(r"\*\*Reach for:\*\*\s*\[([^\]]+)\]")
@@ -41,6 +45,28 @@ def parse_entries(text):
         front = symptom.group(1).strip()
         back = f"{reach_for.group(1).strip()} — {insight.group(1).strip()}"
         entries.append((front, back, title))
+    return entries, malformed
+
+
+def load_entries(library_path):
+    """Parse a single markdown file, or every *.md file in a directory.
+
+    Directory mode tags each title with its source filename — with several
+    group files in play, "which file was this in" matters for malformed/error
+    reporting in a way it doesn't for a single file.
+    """
+    if library_path.is_dir():
+        files = sorted(library_path.glob("*.md"))
+    else:
+        files = [library_path]
+
+    entries = []
+    malformed = []
+    for path in files:
+        file_entries, file_malformed = parse_entries(path.read_text())
+        tag = (lambda title: f"{path.name}: {title}") if library_path.is_dir() else (lambda title: title)
+        entries.extend((front, back, tag(title)) for front, back, title in file_entries)
+        malformed.extend(tag(title) for title in file_malformed)
     return entries, malformed
 
 
@@ -82,8 +108,9 @@ def main():
     parser.add_argument(
         "library_path",
         nargs="?",
-        default=str(Path(__file__).parent / "problem-library.md"),
-        help="Path to problem-library.md (default: sibling file next to this script)",
+        default=str(DEFAULT_LIBRARY_PATH),
+        help="Path to a problem-library markdown file, or a directory of grouped ones "
+        f"(default: {DEFAULT_LIBRARY_PATH})",
     )
     parser.add_argument("--deck", default=DEFAULT_DECK)
     parser.add_argument("--url", default=DEFAULT_URL)
@@ -98,8 +125,11 @@ def main():
     if not library_path.exists():
         print(f"error: {library_path} not found", file=sys.stderr)
         sys.exit(1)
+    if library_path.is_dir() and not list(library_path.glob("*.md")):
+        print(f"error: no .md files in {library_path}", file=sys.stderr)
+        sys.exit(1)
 
-    entries, malformed = parse_entries(library_path.read_text())
+    entries, malformed = load_entries(library_path)
 
     if args.dry_run:
         for front, back, title in entries:
