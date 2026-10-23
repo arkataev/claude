@@ -47,6 +47,7 @@ Always-apply baseline. Decision rules and guardrails live in `/design`.
 - **Domain exceptions** — domain raises domain exceptions; outer layer maps them to protocol-specific responses (HTTP status, exit codes, JSON envelopes).
 - **Enums over strings** — `str` enums for any field with a finite set of values. Never bare strings.
 - **Self-validating value objects** — constructor yields a valid instance or raises. Defensively copy mutable members on otherwise-immutable records.
+- **Build values whole; never patch them** — construct a value once, complete, where it is made; no `replace`/`__setattr__` afterwards to fix it up (a new value for a real state change is fine). Construction from rows or wire shapes is a classmethod on the value, not a free helper. See `/design` § 3.
 - **Validation placement (three-question rule)** — value invariant → model constructor; wire format → boundary parser; input source → outermost layer. See `/design` § 4 for guardrails.
 **When these are over-engineering:** for single-concern scripts under ~200 LoC with one I/O path, ceremonial layering and typed value objects can be skipped. Apply once concerns cross or invariants need enforcing in 2+ places.
 ## BDD Feature Conventions

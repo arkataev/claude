@@ -73,6 +73,8 @@ For each value object, list its *invariants* — properties that must always hol
 **Rules:**
 - **Value objects own their invariants.** The constructor either yields a valid instance or raises. There is no "permissive constructor" path that skips checks.
 - **Defensively copy mutable members.** Frozen records holding mutable containers (dicts, lists) must copy at construction, so caller mutation doesn't leak in. Frozen guards the binding, not the contents.
+- **Build values whole; never patch them.** Construct a value once and complete, at the point where everything it needs is known: compute the parts first, then construct. Don't finish or correct an instance afterwards — no `dataclasses.replace`, `object.__setattr__` or attribute assignment to fix it up (a `__post_init__` normalizing its own fields is part of construction). A copy-and-patch hides which construction path is the real one and lets a half-built value travel. Deriving a genuinely new value is different: a state transition or a user's answer that changes a choice yields a new value, named for what happened, not a repair of the old one.
+- **Construction belongs to the value.** Building a value from a wire shape or a storage row is a classmethod on the value (`Product.from_row(fields)`), taking plain types, so every construction path runs the same invariants. The adapter only reads the raw source (a DB row, JSON) into plain fields; it does not assemble domain objects in free helper functions.
 - **Closed-set strings → enums.** Any field with a finite set of valid values (statuses, error codes, types) becomes a string-valued enum, not a raw string.
 
 **Guardrail — when to formalize:**
