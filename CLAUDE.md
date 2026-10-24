@@ -12,6 +12,7 @@ Typical pipeline:
 | `/refactoring` | Existing code — audit + targeted fix. Standalone or after `/tdd` reveals drift. References `/design` for target shape. |
 | `/review` | Coverage gap audit between scenarios and tests. |
 | `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |
+| `/feature-workflow` | Multi-step features — the main session designs, briefs and triages; the global `writer` (Sonnet) and `reviewer` (Opus, read-only) agents implement and review. Project settings go in the project CLAUDE.md "Workflow" section. |
 
 ### Behavior modes
 | Skill | When to invoke |
@@ -129,6 +130,7 @@ Full workflow lives in `/refactoring`. Contract that always holds:
 | Ambient conventions (apply across projects) | This file |
 | Project-specific commands, structure, decisions | Project `CLAUDE.md` and `docs/` |
 | Invocable workflows | Skills (`~/.claude/skills/<name>/SKILL.md`) |
+| Agents a workflow spawns | `~/.claude/agents/<name>.md` (generic; project specifics in the project CLAUDE.md) |
 | Project-local context that shouldn't generalize | Memory (`~/.claude/projects/<path>/memory/`) |
 | Architectural decisions | `docs/design.md` § ADRs |
 | Behavior specifications | `features/*.feature` |
