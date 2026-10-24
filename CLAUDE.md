@@ -82,6 +82,7 @@ Rules:
 - If a test passes without implementing the expected behavior, the test is too weak — tighten assertions.
 - **Inject I/O via callables** (reader, parser, etc.); tests use `Mock`. Never `monkeypatch` stdin/files.
 - **Use real objects with `Mock` / `patch.object`** for objects whose interface might drift, not handcrafted stubs.
+- **Unit and integration tests are two kinds, kept apart.** A *unit* test is pure: no database (not even in-memory), file, network, subprocess, real clock or environment; it runs with no infrastructure and replaces the repositories, ports and application API it calls with autospec mocks, so it tests business logic only. An *integration* test exercises a real adapter against its real dependency (SQL against the engine, a parser against real files, the wiring end to end). Each test is one kind, visible from its path (`tests/unit/`, `tests/integration/`), and the unit suite runs alone. Most tests are unit tests. See `/tdd` "Unit or integration".
 **ZOMBIES** for test discovery: Zero, One, Many, Boundaries, Interfaces, Exceptions, Simple.
 ## Refactoring
 Full workflow lives in `/refactoring`. Contract that always holds:
