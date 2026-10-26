@@ -30,6 +30,7 @@ same section. When an item is missing, use the default.
 | **Test conventions**: test naming, citing scenarios, where tests live | the global TDD conventions |
 | **Review checklist**: the project's invariants the reviewer checks by name | the global architecture principles |
 | **Verify**: what the designer checks or renders by hand before a commit | the gate |
+| **Bench**: the commands that save a benchmark run and compare one against it (`/perf`) | none |
 | **State file**: where "Resume here" lives | none |
 
 ## 1. Plan
@@ -44,10 +45,14 @@ placement, ADR drafts, a trace, and the steps. Settle the user's decisions with
 - **Changes**: numbered, each with its file and its layer.
 - **Spec and tests**: scenarios first (`features/*.feature`), then the tests that cite them.
 - **Docs to update.**
-- **This step's numbers**: the project's brief extras.
+- **This step's numbers**: the project's brief extras; with a Bench setting and a step on a hot
+  path, the benchmarks expected to move and the prototype numbers the plan rests on.
 
 The standing rules (off-limits runs, no git writes, no secrets, protected files) and the report
 formats live in the agent definitions and the project's settings, not in each brief.
+
+With a Bench setting, save a baseline run on the commit before the writer starts and name it in
+the brief.
 
 ## 3. Writer
 Spawn once per feature with `subagent_type: "writer"` and the brief's path, plus notes such as
@@ -58,7 +63,10 @@ at once is checked by breaking the code.
 ## 4. Reviewer
 Spawn and reuse the same way with `subagent_type: "reviewer"` and the brief's path. It checks
 scenarios against tests, runs `/code-review`, and verifies each finding. Findings come ranked by
-severity, each with a concrete failure scenario.
+severity, each with a concrete failure scenario. New SQL comes with its query plan checked; a
+new loop over stored data, with a benchmark at two sizes; a new external call, within the call
+budget; a new write entry point, in the idempotency and fault-injection guards (where the
+project has them).
 
 ## 5. Triage
 Accept or reject each finding and say why. Send the accepted ones to the writer: one review
@@ -77,8 +85,10 @@ reviewer's word alone.
 
 ## 7. Verify and commit
 Read the core diff (domain, persistence, services, shared wording), run the gate and the collect
-check, then do the project's verify items. Commit with the step's numbers in the message
-(scores, test counts). Update the project's state file.
+check, then do the project's verify items. With a Bench setting, compare against the baseline
+after the fix round: rerun a flagged benchmark alone before calling it noise, then save the run.
+Commit with the step's numbers in the message (scores, test counts, benchmark changes over
+10%). Update the project's state file.
 
 ## 8. Ping the user
 Say what to try. Merge to `main` (fast-forward) only after they have tried it.

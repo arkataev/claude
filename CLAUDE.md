@@ -1,7 +1,7 @@
 # Global Development Conventions
 ## Workflow & Skills
 Typical pipeline:
-**Behavior** (`/bdd`) → **Design** (`/design`) → **Test → Implement** (`/tdd`) → **Refactor** (`/refactoring`) → **Coverage** (`/review`)
+**Behavior** (`/bdd`) → **Design** (`/design`) → **Test → Implement** (`/tdd`) → **Refactor** (`/refactoring`) → **Measure** (`/perf`) → **Coverage** (`/review`)
 
 ### Pipeline & quality passes
 | Skill | When to invoke |
@@ -10,6 +10,7 @@ Typical pipeline:
 | `/design` | Non-trivial shape decisions — layers, value objects, validation placement, ADRs. |
 | `/tdd` | Implementation — strict red → green → refactor → lint cycle, one behavior at a time. |
 | `/refactoring` | Existing code — audit + targeted fix. Standalone or after `/tdd` reveals drift. References `/design` for target shape. |
+| `/perf` | A change on a hot path (baseline before, compare after), a performance audit, or a "slow after a while" symptom. |
 | `/review` | Coverage gap audit between scenarios and tests. |
 | `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |
 | `/feature-workflow` | Multi-step features — the main session designs, briefs and triages; the global `writer` (Sonnet) and `reviewer` (Opus, read-only) agents implement and review. Project settings go in the project CLAUDE.md "Workflow" section. |
@@ -85,6 +86,14 @@ Rules:
 - **Use real objects with `Mock` / `patch.object`** for objects whose interface might drift, not handcrafted stubs.
 - **Unit and integration tests are two kinds, kept apart.** A *unit* test is pure: no database (not even in-memory), file, network, subprocess, real clock or environment; it runs with no infrastructure and replaces the repositories, ports and application API it calls with autospec mocks, so it tests business logic only. An *integration* test exercises a real adapter against its real dependency (SQL against the engine, a parser against real files, the wiring end to end). Each test is one kind, visible from its path (`tests/unit/`, `tests/integration/`), and the unit suite runs alone. Most tests are unit tests. See `/tdd` "Unit or integration".
 **ZOMBIES** for test discovery: Zero, One, Many, Boundaries, Interfaces, Exceptions, Simple.
+## Performance Conventions
+Full method lives in `/perf`. Contract that always holds:
+- **Measure, don't guess.** A change on a hot path (a loop over stored data, a new query, matching against a whole catalog, a replay of a log) is compared with a benchmark run saved before it; the commit message gives every change over 10%.
+- **Benchmarks outside the gate, guards inside.** Timings are noisy and one machine's, so they never fail the test command. What is deterministic is a test: the statement and external-call budgets per operation, query-plan tests for lookups that must seek, `ResourceWarning` as an error, fault injection and idempotency for every write (`/design` § 2 "Guard it").
+- **Each benchmark size grows one axis** (catalog, history per entity, input length), besides the sizes that grow everything; a cost linear in one axis hides behind sizes that grow them together.
+- **Prototype a fix and measure it before planning it**; the expected gain is a hypothesis.
+- **A fast path proves it gives the same results** as the slow one (an exhaustive or brute-force check, or both forms compared on varied data), and a mutation of it fails a test.
+- **Generated, seeded data only** for benchmarks and profiles; never real user data.
 ## Refactoring
 Full workflow lives in `/refactoring`. Contract that always holds:
 - **Tests pass before and after** every change.
