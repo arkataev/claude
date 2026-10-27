@@ -1,67 +1,66 @@
 ---
-description: Review feature scenarios against tests — find gaps in coverage
+description: Light check of a change — its scenarios against its tests, then correctness against the project's rules; no timings
 user_invocable: true
-argument: Optional specific feature file or area to review (default: all features)
+argument: Optional — a brief or spec folder to judge against, a git range (default main...HEAD plus the working tree), or "all" for a whole-suite coverage audit
 ---
 
-# Coverage Review
+# Review
 
-Compare feature file scenarios to existing tests and identify gaps.
+The check every change gets: each step of a feature, or any change made ad hoc. It reads the
+diff, not the whole project, and runs no benchmarks or paid calls: the heavy checks are
+`/validate`'s, once per feature.
 
-## Process
+## Input
+- **The change:** `git diff main...HEAD` plus the working tree and the untracked files in
+  `git status` (not editor folders such as `.idea/`), or the range given.
+- **What to judge against:** the brief or spec folder given, else the spec folders whose files
+  the diff touches. Both CLAUDE.md files apply; the project's is more specific. Its "Workflow"
+  section names the gate and the review checklist.
 
-### 1. Read Feature Files
+## Pass 1: scenarios against tests
+For each scenario the diff adds or changes (in `specs/**/*.feature`), and each scenario the
+brief promises:
+- a test cites it the way the project's conventions say (find it by the citation, don't read
+  every test file);
+- the test asserts what each Then clause says, with the scenario's values, not only a shape;
+- the test is at the scenario's level (a gateway scenario has a gateway test);
+- ambient state the scenario names is set explicitly (`/design` § 5).
 
-Read all `.feature` files in `features/` (or the specific one requested). Extract every scenario with its tag.
+Also: a renamed or removed scenario leaves no dangling citation (tests, design docs, ADRs), and
+a test the diff adds that cites nothing either belongs to a scenario that is missing or is an
+implementation-level test.
 
-### 2. Read Test Files
+## Pass 2: correctness
+Run `/code-review` on the change at effort `high`. Then check, whether or not it raised them:
+- **Layers:** dependencies point one way; persistence stays in its layer.
+- **Transactions:** the service owns them; no slow or external call inside one; nothing partial
+  is written when a step fails.
+- **Gateways:** they represent and decide no domain outcome; shared wording is not copied.
+- **The project's review checklist**, item by item.
+- **Reuse:** where a rule existed, it was reused, not copied.
+- **The conventions:** values built whole, validation by the three-question rule, data access as
+  if remote and concurrent (`/design` §§ 2–4), tests of public behavior.
+- **The deterministic guards** the gate holds (statement and call budgets, query plans,
+  idempotency, fault injection) cover any new write, read or external call. Timings are not
+  this skill's: a hot path goes to `/validate`.
+- **The brief or spec:** what it promises, and whether old behavior survives the change.
 
-Read all test files in `tests/`. Map each test function to the behavior it covers.
+## Every finding is verified
+Try to make it happen: a failing test selection, or a throwaway script outside the repo (against
+an in-memory or temporary copy of any data). Mark it **verified** (how) or **by reading**. Drop
+anything you cannot tie to a concrete wrong outcome. Judge against the spec and the rules, not
+preference.
 
-### 3. Build Coverage Table
+## Report (≤60 lines)
+1. The gate result (run it unless the caller just did).
+2. Pass 1: gaps and weak tests, each with the scenario name and test file:line. Or "none".
+3. Bugs, most severe first: severity, file:line, the defect in one sentence; the failure (inputs
+   or state → wrong outcome); verified or by reading; the fix in one line.
+4. Nits, one line each.
+5. One line per area checked and found clean.
 
-For each scenario, find the corresponding test(s):
-
-| Feature | Scenario | Tag | Test | Status |
-|---------|----------|-----|------|--------|
-| Name | Scenario name | @tag | `test_file::test_name` or "—" | Covered / Missing / Documented-only |
-
-Rules:
-- `@documented-only` scenarios → status is "Documented-only" (expected, not a gap)
-- Scenarios with a matching test → "Covered"
-- Scenarios without a matching test and no `@documented-only` tag → "Missing" (this is a gap)
-
-### 4. Assess Test Quality
-
-For covered scenarios, check if the test actually validates what the scenario describes:
-- Does the test assert on the specific values mentioned in the scenario (not just response shape)?
-- Does the test cover the full scenario (all Then/And clauses), or just part of it?
-- Does the test control ambient state explicitly when the scenario specifies it (clock, randomness, env, filesystem)? Tests that leave ambient state uncontrolled are flaky; tests that reach for module-namespace patching where a thin-subclass seam exists are fragile (see `/design` § 5 and `/refactoring`'s smell catalog).
-- Flag weak tests that pass for the wrong reason.
-
-### 5. Check for Orphan Tests and Stale Citations
-
-**Orphan tests.** Find tests that don't map to any scenario. These might indicate:
-- Missing scenarios (feature file needs updating)
-- Implementation-level tests that don't need a scenario (repository, internal logic)
-- Dead tests that should be removed
-
-**Stale citations.** Scan design docs / ADRs / READMEs for references to feature scenarios (e.g., `features/X.feature` § "scenario Y") and verify each one still resolves to a current scenario. Renamed or removed scenarios leave dangling citations in the docs — flag them. This complements the orphan-tests check on the *documentation* side of the scenario surface.
-
-### 6. Recommend Next Steps
-
-Based on gaps found:
-- Missing scenarios → suggest writing them (offer to run `/bdd`)
-- Missing tests → suggest implementing them (offer to run `/tdd`)
-- Weak tests → suggest tightening assertions
-- Ambient-state mismanagement (uncontrolled or namespace-patched) → route to `/refactoring` (its smell catalog has the tactic)
-- Stale doc citations → update in place during the next structural pass (citation hygiene per `/design` § 6); route to `/refactoring` if a refactor is already underway
-- Stale `@documented-only` → check if they're now automatable
-
-## Output
-
-1. Coverage table
-2. Summary: X covered, Y missing, Z documented-only
-3. Orphan tests (if any)
-4. Stale doc citations (if any) — scenario references in docs/ADRs that no longer resolve
-5. Recommended actions
+## `all`: whole-suite audit
+Every scenario in `specs/` against the tests: a table (spec, scenario, test, Covered / Missing /
+Documented-only), weak tests, orphan tests, stale citations in docs, and `@documented-only`
+scenarios that may now be automatable. Route missing scenarios to `/bdd`, missing tests to
+`/tdd`, test smells to `/refactoring`.

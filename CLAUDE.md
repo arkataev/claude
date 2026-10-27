@@ -1,19 +1,22 @@
 # Global Development Conventions
 ## Workflow & Skills
-Typical pipeline:
-**Behavior** (`/bdd`) → **Design** (`/design`) → **Test → Implement** (`/tdd`) → **Refactor** (`/refactoring`) → **Measure** (`/perf`) → **Coverage** (`/review`)
+Spec-driven. Every change starts from a spec; the roadmap says what comes next, the changelog what is done:
+**Roadmap** (`/roadmap`) → branch `feature/<name>` → **Spec** (`/bdd`) → **Plan** (`/design`) → per step: **Test → Implement** (`/tdd`) → **Review** (`/review`) → **Validate** (`/validate`) → **Changelog** (`/changelog`) → merge `--no-ff`
 
 ### Pipeline & quality passes
 | Skill | When to invoke |
 |---|---|
-| `/bdd` | New features — define behavior in Gherkin, then derive tests. |
-| `/design` | Non-trivial shape decisions — layers, value objects, validation placement, ADRs. |
-| `/tdd` | Implementation — strict red → green → refactor → lint cycle, one behavior at a time. |
+| `/roadmap` | `ROADMAP.md`: the current scope (Now / Next / Later / To confirm); start a feature from it. |
+| `/bdd` | Every change, first — write or update `specs/<feature>/spec.md` and its Gherkin scenarios; the user approves it. |
+| `/design` | The approved spec → `specs/<feature>/plan.md`: layers, value objects, validation placement, ADRs, steps (hot paths flagged). |
+| `/tdd` | Implementation — red → green → refactor, one scenario at a time, gate at the end. |
+| `/review` | The light check of any change (each step, or ad hoc): scenarios against tests, correctness against the rules. No timings. |
+| `/validate` | Once per feature before merge (and `step` mode on a hot-path step): gate, spec acceptance, evals, benchmarks, profile, render. |
+| `/changelog` | Close a feature: its `CHANGELOG.md` entry and the roadmap updated. |
 | `/refactoring` | Existing code — audit + targeted fix. Standalone or after `/tdd` reveals drift. References `/design` for target shape. |
-| `/perf` | A change on a hot path (baseline before, compare after), a performance audit, or a "slow after a while" symptom. |
-| `/review` | Coverage gap audit between scenarios and tests. |
+| `/perf` | The measuring method: prototype a fix before planning it, a performance audit, or a "slow after a while" symptom. |
 | `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |
-| `/feature-workflow` | Multi-step features — the main session designs, briefs and triages; the global `writer` (Sonnet) and `reviewer` (Opus, read-only) agents implement and review. Project settings go in the project CLAUDE.md "Workflow" section. |
+| `/feature-workflow` | Runs the loop for a roadmap feature — the main session specs, plans, briefs and triages; the global `writer` (Sonnet) and `reviewer` (Opus, read-only) agents implement and review. Project settings go in the project CLAUDE.md "Workflow" section. |
 
 ### Behavior modes
 | Skill | When to invoke |
@@ -53,30 +56,18 @@ Always-apply baseline. Decision rules and guardrails live in `/design`.
 - **Data access as if remote, concurrent and failing** — never rely on the backend being local, fast or single-user: no query per item in a loop, one read per decision with the rule in the domain, short atomic check-then-act transactions, constraints in the database, retryable idempotent units, explicit tenancy, a statement-count guard. Pick approaches by their failure and concurrency behavior. See `/design` § 2.
 - **Validation placement (three-question rule)** — value invariant → model constructor; wire format → boundary parser; input source → outermost layer. See `/design` § 4 for guardrails.
 **When these are over-engineering:** for single-concern scripts under ~200 LoC with one I/O path, ceremonial layering and typed value objects can be skipped. Apply once concerns cross or invariants need enforcing in 2+ places.
-## BDD Feature Conventions
-```gherkin
-Feature: Short Name
-  As a <role>
-  I want to <capability>
-  So that <business value>
-  Scenario: Descriptive name of one behavior
-    Given <precondition>
-    When <action>
-    Then <observable outcome>
-```
-Rules:
-- One feature file per domain concept (not per endpoint or class).
-- Scenarios describe **behavior**, not implementation — no code, no class names, no internal details.
-- Tags for test categories: `@sequence-mock`, `@integration`, `@documented-only`.
-- `@documented-only` for scenarios that can't be automated yet — include a comment explaining why.
-- `Background` for shared preconditions.
-- Comments for domain rules and edge case explanations.
+## Spec Conventions
+Full format lives in `/bdd`. Contract that always holds:
+- **Specs first.** No behavior is built, and no technical change is planned, without an approved spec: `specs/<feature>/spec.md`, plus `<feature>.feature` when the feature has behavior.
+- **One folder per feature** (a roadmap item), holding its spec, scenarios, plan, briefs and validation report. A change to existing behavior edits the scenario in its own folder and lists it under "Affected specs".
+- Scenarios describe **behavior**, not implementation — no code, no class names, no internal details; scenario names are unique, since tests cite them.
+- Only one tag: `@documented-only`, with a comment saying why. A test's kind is its path.
 ## TDD Conventions
 **Process:**
 1. One failing test at a time — simplest first.
 2. Minimum code to pass. No untested code.
 3. Refactor only when green. One change at a time. Don't change test assertions.
-4. Run the full suite after every change — or the fastest reliable subset locally + full suite at commit boundary.
+4. The affected tests each cycle, the full suite after each section, the gate at the end. A test that passes at once is checked by breaking the code.
 **Test quality:**
 - Test behavior, not implementation — assert on responses and state, not method calls.
 - **Test only public interfaces.** Privates are implementation details; tests against them break for the wrong reasons.
@@ -89,6 +80,7 @@ Rules:
 ## Performance Conventions
 Full method lives in `/perf`. Contract that always holds:
 - **Measure, don't guess.** A change on a hot path (a loop over stored data, a new query, matching against a whole catalog, a replay of a log) is compared with a benchmark run saved before it; the commit message gives every change over 10%.
+- **Guards every step, timings per feature.** The deterministic guards run in the gate at every step; benchmarks run in `/validate` once per feature against the baseline saved at the branch point, and at a step only when the plan marks it hot path.
 - **Benchmarks outside the gate, guards inside.** Timings are noisy and one machine's, so they never fail the test command. What is deterministic is a test: the statement and external-call budgets per operation, query-plan tests for lookups that must seek, `ResourceWarning` as an error, fault injection and idempotency for every write (`/design` § 2 "Guard it").
 - **Each benchmark size grows one axis** (catalog, history per entity, input length), besides the sizes that grow everything; a cost linear in one axis hides behind sizes that grow them together.
 - **Prototype a fix and measure it before planning it**; the expected gain is a hypothesis.
@@ -112,7 +104,9 @@ Full workflow lives in `/refactoring`. Contract that always holds:
 | Project `CLAUDE.md` | Project-specific commands, layer adaptation, conventions, testing patterns |
 | `docs/design.md` | Architectural decisions, ADRs, pattern selection, technology choices |
 | `docs/runtime-walkthrough.md` (or similar) | End-to-end trace — only when multi-layer flow is worth tracing |
-| `features/*.feature` | Behavioral specifications in Gherkin |
+| `specs/<feature>/` | The feature's spec (`spec.md`), its Gherkin scenarios, plan, briefs and validation report |
+| `ROADMAP.md` | What will be done: Now (work in progress, where a session resumes), Next, Later, To confirm |
+| `CHANGELOG.md` | What has been done: one entry per merged feature, with its numbers |
 | Inline docstrings | Public contracts; code-specific limitations (`Limitation:`) |
 **Doc style:**
 - **WHY over WHAT** — same rule as comments. Docs explain motivation, constraints, and non-obvious context; WHAT belongs in the code's identifiers.
@@ -142,4 +136,7 @@ Full workflow lives in `/refactoring`. Contract that always holds:
 | Agents a workflow spawns | `~/.claude/agents/<name>.md` (generic; project specifics in the project CLAUDE.md) |
 | Project-local context that shouldn't generalize | Memory (`~/.claude/projects/<path>/memory/`) |
 | Architectural decisions | `docs/design.md` § ADRs |
-| Behavior specifications | `features/*.feature` |
+| Behavior specifications, plans, briefs | `specs/<feature>/` |
+| What's next / what's done | `ROADMAP.md` / `CHANGELOG.md` (no handover notes) |
+
+**Git:** one branch per feature, `feature/<name>`, from `main`; merged with `--no-ff` after the user has tried it, then deleted.

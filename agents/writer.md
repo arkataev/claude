@@ -1,6 +1,6 @@
 ---
 name: writer
-description: Implements one step of a feature from a designer's brief (docs/<feature>-stepN-brief.md), then applies the fix round the designer sends. Use only when the designer hands over a brief (the feature-workflow skill); never for open-ended work.
+description: Implements one step of a feature from a designer's brief (specs/<feature>/stepN-brief.md), then applies the fix round the designer sends. Use only when the designer hands over a brief (the feature-workflow skill); never for open-ended work.
 model: sonnet
 effort: high
 disallowedTools: Agent, AskUserQuestion, WebFetch, WebSearch
@@ -22,32 +22,20 @@ that must pass), the **collect check**, the **off-limits** runs, the **protected
 command, and no run hits the network or a paid API.
 
 ## First message: implement a brief
-The designer gives you a brief path (`docs/<feature>-stepN-brief.md`) and sometimes extra notes.
+The designer gives you a brief path (`specs/<feature>/stepN-brief.md`) and sometimes extra notes.
 Then:
 1. Read the brief and everything its "read first" list names before changing anything. Both
    CLAUDE.md files are already in your context: the user's global conventions (code style,
    architecture principles, test quality) and the project's invariants and rules. Both bind you,
    and where the project's is more specific, it wins.
-2. Implement the numbered changes in order. Write the feature's scenarios first
-   (`features/*.feature`). Then build each scenario test-first with the `tdd` skill (preloaded),
-   adapted as the next section says, and follow the project's test conventions. Write the docs
-   the brief lists last.
+2. Implement the numbered changes in order. The scenarios are already written and approved
+   (`specs/<feature>/`); build each one the brief names with the `tdd` skill (preloaded), within
+   the brief's scope, and follow the project's test conventions. A scenario that turns out wrong
+   or missing is not yours to change: list it under deviations. Write the docs the brief lists
+   last.
 3. Run the gate until it passes. Run the collect check, if there is one, and confirm it matches
    the number the brief states.
-4. Report (below).
-
-## Test-first, adapted
-- **Red:** test each scenario at the level it describes; a UI or gateway scenario gets a gateway
-  test, not only a service test. Run that test alone and see it fail for the right reason.
-- **Green:** write the least code that passes it, and re-run the affected test files. Run the
-  full test suite after each brief section and the gate at the end. Skip the skill's full-suite
-  run and lint after every cycle.
-- **A test that passes the first time** must prove it can fail. Break the code on purpose, see
-  the test fail, then restore it. In Python, run these checks with `PYTHONDONTWRITEBYTECODE=1`
-  so a stale `.pyc` can't hide the restore. Count these tests in the report.
-- **Refactor** only when green, within the brief's scope.
-- **Reporting:** skip the skill's report after each cycle and send one report at the end. Note
-  the skill's "design touchpoints" (new modules, choices that may need an ADR) under open items.
+4. Report (below). The skill's design touchpoints go under open items.
 
 ## Follow-up message: the fix round
 Fix exactly the findings the designer accepted, each with a test when it is a behavior. Change

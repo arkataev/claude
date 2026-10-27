@@ -1,14 +1,14 @@
 ---
 description: Establish or refine the architectural shape of a system — layers, value objects, patterns, and decision records
 user_invocable: true
-argument: What you're designing — a new system, a redesign target, or "review" to assess current shape
+argument: The approved spec to plan (specs/<feature>/), or a redesign target
 ---
 
 # Design
 
-You are establishing or refining the architectural shape of a system. The output is **structural decisions backed by rationale** — not implementation. Implementation comes later (often via `/tdd` or `/bdd`).
+You are establishing or refining the architectural shape of a system. The output is **structural decisions backed by rationale** — not implementation. It starts from an approved spec (`/bdd`): the spec says what and how we know; the plan says how.
 
-This skill owns the principle catalog. The `/refactoring` skill references it as the target shape.
+This skill owns the principle catalog. The `/refactoring` skill references it as the target shape, and audits current code against it.
 
 ## Process
 
@@ -16,9 +16,8 @@ This skill owns the principle catalog. The `/refactoring` skill references it as
 
 Determine which mode applies:
 
-- **Greenfield** — building something new. Start by stating the system's job in one sentence: who calls it, what input shapes, what output shapes.
-- **Redesign** — reshaping existing code. Start by listing what's not working: where concerns cross, where one change touches many files, where new readers reliably get lost.
-- **Review** — assessing the current shape against the principles below without proposing changes yet. Walk steps 2–6 against current code and report drift.
+- **Feature** — planning an approved spec. Read `specs/<feature>/spec.md` and its scenarios first; the plan answers its Acceptance and nothing more. State the job in one sentence: who calls it, what input shapes, what output shapes.
+- **Redesign** — reshaping existing code. Start by listing what's not working: where concerns cross, where one change touches many files, where new readers reliably get lost. A redesign is a technical feature: it gets a spec with measurable acceptance first.
 
 If the user's request is ambiguous, ask. Don't guess — the rest of the workflow branches on this.
 
@@ -176,9 +175,7 @@ Draft an ADR for any decision that meets ANY of these conditions:
 - ADR **citations are not** — file paths, symbol names, code snippets, and cross-references in an ADR must stay current with the code they describe. When a referenced symbol is renamed or moved, the ADR's citation updates in place; the decision text does not. The distinction: the decision is immutable, the description of *where the decision lives* tracks reality.
 - **Citations must resolve in the doc's audience.** Every cross-reference (file path, symbol name, sibling document) should point at an artifact the intended reader can open. When a design doc is bound for external distribution, audit citations to internal-only notes, agent prompts, personal configs, or sibling files that aren't shipped — they become dangling links downstream.
 - Don't ADR what the code already says clearly. ADRs document **why**, not what.
-
-**Guardrail — when to ADR:**
-For projects with few contributors (≤5) and short lifetime (<6 months), ADRs are often skipped — the team holds the context. Introduce ADRs when context is being lost: new contributors asking "why this shape?", reviewers re-litigating settled decisions. Below that threshold, a `# Why:` comment in code may suffice.
+- In a plan, ADRs are drafts; the step that makes a decision true adds its ADR to the design doc.
 
 ### 7. Verify the design
 
@@ -192,28 +189,42 @@ Before declaring the design done:
 
 If any check fails, return to the relevant step.
 
-## Output
+## Output: `specs/<feature>/plan.md`
 
-Produce these artifacts:
+```markdown
+# <Feature> — plan
 
-1. **Layer responsibility table** (step 2).
-2. **Module map** (step 2) — file-level index of which modules implement each layer. Skip for ≤3-module systems.
-3. **Data model with invariants** (step 3).
-4. **Validation placement decisions** (step 4) — per rule, which layer owns it and why.
-5. **Patterns selected** (step 5) — with demand evidence for each.
-6. **ADR drafts** (step 6) — one per non-obvious decision.
-7. **End-to-end trace** (step 7) — narrative, ~10–15 sentences.
+**Spec:** specs/<feature>/spec.md (Approved <date>)   **Status:** Draft | Approved
 
-These collectively form the design document. Keep it ratio-heavy on rationale and decisions; defer implementation specifics to the code (which is the source of truth) and to runtime walkthroughs (which document call paths, not decisions).
+## Job                  one sentence (step 1)
+## Decisions            the user's answers, each with the question it settled
+## Layers               the layer table and the module map rows this adds or changes (step 2)
+## Data model           new values and their invariants (step 3)
+## Data access          what each operation reads and writes, in how many statements; the
+                        axes its cost grows with; the guards it must satisfy (step 2)
+## Validation placement per rule, its layer and why (step 4)
+## Patterns             with demand evidence (step 5)
+## ADR drafts           one per non-obvious decision (step 6)
+## Trace                one operation end to end, ~10–15 sentences (step 7)
+## Steps
+| # | What | Layers | Scenarios | Hot path |
+|---|------|--------|-----------|----------|
+| 1 | …    | domain, store | names from the spec | yes: <benchmarks expected to move, prototype numbers> / no |
+## Verification         what /validate checks beyond the gate: evals, renders, benchmarks
+```
+
+- Every scenario and every acceptance criterion of the spec lands in exactly one step.
+- **Hot path** marks a step that adds a loop over stored data, a query, a match against a whole
+  catalog, a replay or a model request that grows with the data; `/feature-workflow` runs
+  `/validate step` on it. Its numbers come from a prototype (`/perf` § 3), not a guess.
+- Keep the plan ratio-heavy on rationale and decisions; implementation specifics belong to the
+  code and the briefs.
+
+Show the plan, settle its decisions with the user, set **Status: Approved** when they approve,
+and commit it on the feature branch.
 
 ## What this skill is NOT
 
-- Not a code generator. It produces decisions, not files.
-- Not a TDD/BDD replacement. Implementation work happens via `/tdd`; behavioral specification via `/bdd`.
+- Not a code generator. It produces decisions, not code.
+- Not a spec (`/bdd`) and not implementation (`/tdd`).
 - Not a forced ceremony. Every step has a guardrail for when it's over-engineering. Skip the steps whose guardrails fail.
-
-## See also
-
-- `/bdd` — start with feature spec before designing.
-- `/tdd` — implement after design is approved.
-- `/refactoring` — apply this skill's principles to existing code.

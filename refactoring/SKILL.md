@@ -116,4 +116,4 @@ Output:
 
 - `/design` — the target shape principles and decision rules. Every tactic in this skill maps to one or more design principles.
 - `/tdd` — when a refactor reveals missing behavior, switch to TDD instead.
-- `/review` — coverage gaps between feature scenarios and tests (orthogonal to refactoring; useful before/after).
+- `/review all` — coverage gaps between spec scenarios and tests (orthogonal to refactoring; useful before/after).

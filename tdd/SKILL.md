@@ -1,48 +1,50 @@
 ---
-description: Run a TDD cycle — write failing test, implement, green, refactor, lint
+description: Build behavior test-first — red, green, refactor — one scenario at a time, gate at the end
 user_invocable: true
-argument: Description of the behavior to implement
+argument: The scenarios or behavior to implement (a spec folder, a brief, or a description)
 ---
 
-# TDD Cycle
+# TDD
 
-You are running a strict TDD workflow. Follow these rules exactly.
+You are building behavior test-first. Follow these rules exactly.
 
 ## Input
 
-The user provides a description of behavior to implement. If feature files exist in `features/`, check them first — the scenario may already be specified there.
+The scenarios come from the feature's spec (`specs/<feature>/*.feature`, and the "Affected specs"
+its `spec.md` lists) or a brief that names them. With no spec, ask whether one should be written
+first (`/bdd`); a one-off fix may go without.
 
-## Process
+## The cycle (per behavior)
 
-For each piece of behavior, repeat this cycle:
+### 1. Red
+- Write the simplest test that captures the next piece of behavior (ZOMBIES below).
+- Test at the level the scenario describes: a screen, bot or API scenario gets a gateway test,
+  not only a service test.
+- Decide unit or integration first (below), and put it in that tree.
+- Follow the project's test conventions (naming, citing the scenario, fixtures) and
+  given-when-then with blank lines between the sections.
+- **Ambient state** (clock, randomness, env, filesystem): a thin subclass over the public seam,
+  never module-namespace patching (`/design` § 5).
+- Run that test alone and see it **fail for the right reason**.
 
-### 1. Red — Write a Failing Test
-
-- Write the simplest test that captures the next piece of behavior.
-- Decide first whether it is a unit or an integration test (see "Unit or integration" below), and put it in that tree.
-- Follow the project's existing test patterns (check `tests/` for conventions: test client, fixtures, mocking approach).
-- Follow given-when-then structure with blank lines separating sections.
-- **Ambient-state seams.** If the test needs deterministic control of a dependency's ambient state (clock, randomness, env, filesystem), prefer a thin subclass that overrides the public seam over module-namespace patching of the dependency. See `/design` § 5.
-- Run the test suite and confirm the test **fails for the right reason**.
-- If it passes unexpectedly, the test is too weak — tighten assertions.
-
-### 2. Green — Minimum Implementation
-
-- Write the **minimum code** to make the failing test pass. Nothing more.
-- No untested code. If no test requires it, don't write it.
-- Run the full test suite — confirm **all tests pass**, not just the new one.
+### 2. Green
+- The **minimum code** that passes it. No untested code.
+- Re-run the affected test files.
 
 ### 3. Refactor (only when green)
+- Duplicate code, unclear names, mixed abstraction levels, dead code; one change at a time.
+- Never change a test's assertions, never add behavior (back to Red for that).
 
-- Look for: duplicate code, unclear names, mixed abstraction levels, dead code.
-- One refactoring at a time. Run tests after each.
-- Do NOT change test assertions during refactoring.
-- Do NOT add behavior during refactoring — go back to Red for that.
+### A test that passes at once
+It proves nothing until it fails. Break the code on purpose, see the test fail, restore it. In
+Python run these checks with `PYTHONDONTWRITEBYTECODE=1`: a restored file of the same size within
+the same second can keep the mutant's stale `.pyc`. Count these tests in the report.
 
-### 4. Lint
-
-- Run the project's lint command after each complete cycle.
-- Fix any issues immediately before starting the next cycle.
+### Cadence
+- Each cycle: the new test, then the affected files.
+- After each section of the work (a brief's numbered change, a group of scenarios): the full
+  test suite.
+- At the end: the project's gate (lint, types, tests). Fix what it finds before reporting.
 
 ## Unit or integration
 
@@ -61,26 +63,14 @@ Two kinds of test, kept in two trees (`tests/unit/`, `tests/integration/`, each 
 
 **Choosing.** A rule is tested at unit level; the SQL, serialization or protocol that carries it at integration level. Never test a business rule only through the database. Most tests are unit tests: if the integration tree outgrows the unit tree, rules are being tested in the wrong place.
 
-## Test Discovery (ZOMBIES)
+## Test discovery (ZOMBIES)
+**Z**ero, **O**ne, **M**any, **B**oundaries, **I**nterface, **E**xceptions (happy paths first),
+**S**imple scenarios first.
 
-Use this to find the next test to write:
-- **Z**ero/empty cases
-- **O**ne item cases
-- **M**any items cases
-- **B**oundary transitions
-- **I**nterface clarity
-- **E**xceptions/errors (happy paths first)
-- **S**imple scenarios first
-
-## Output
-
-After each cycle, report:
-- Test name and what it covers
-- Pass/fail status
-- Any refactoring done
-- Lint status
-- **Design touchpoints** (surface, don't act):
-  - **New modules added** — these need entries in the module map (see `/design` § 2). Update the map in the same change.
-  - **Non-obvious decisions surfaced** — implementation choices with seriously-considered rejected alternatives, choices that would surprise an unfamiliar reader, or choices that constrain future change are candidates for an ADR (see `/design` § 6). Don't carry them silently in code; raise them for an ADR pass.
-
-After all cycles complete, run the full test suite one final time and report the result.
+## Report (once, at the end)
+- Tests added, by scenario; the test count before and after.
+- Tests that passed at once and were checked by breaking the code.
+- The gate result.
+- **Design touchpoints** (surface, don't act): new modules (the module map, `/design` § 2);
+  non-obvious choices that may need an ADR (`/design` § 6); a scenario that turned out wrong or
+  missing (back to the spec, `/bdd`).

@@ -1,30 +1,69 @@
 ---
 name: bdd
-description: Define feature scenarios and derive tests from them using BDD → TDD workflow
+description: Write or update a feature's spec — specs/<feature>/spec.md and its Gherkin scenarios — the first step of every change
 user_invocable: true
-argument: Feature or behavior to specify
+argument: The feature (a roadmap item) or the behavior change to specify
 ---
 
-# BDD Feature Specification
+# Spec (BDD)
 
-You are defining behavioral specifications as Gherkin feature files, then deriving tests from them.
+Every change starts here. A spec says what the feature does and how we will know it does it,
+before anyone decides how. `/design` plans against it, `/tdd` builds its scenarios, `/review`
+checks tests against it, `/validate` checks acceptance against it.
 
-## Input
+## Where specs live
+One folder per feature, the unit the roadmap names:
 
-The user describes a feature, capability, or domain concept. You will:
-1. Write the feature file
-2. Review existing tests for coverage
-3. Identify gaps and implement missing tests via TDD
+```
+specs/<feature>/
+  spec.md            # this skill
+  <feature>.feature  # this skill (none for a technical feature)
+  plan.md            # /design
+  stepN-brief.md     # /feature-workflow
+```
 
-## Step 1 — Write the Feature File
+`<feature>` is kebab case and matches the roadmap item and the branch `feature/<feature>`.
 
-Create or update a `.feature` file in `features/`:
+## 1. spec.md
+
+```markdown
+# <Feature name>
+
+**Status:** Draft | Approved | Done (CHANGELOG entry <date>)
+**Roadmap:** <item, one line>
+
+## Job
+Who it is for and what it lets them do, in two or three sentences. The problem, not the solution.
+
+## Scope
+- In: …
+- Out (non-goals): … — each with the reason, so it is not re-asked.
+
+## Acceptance
+- The scenarios in `<feature>.feature` (behavior), and
+- measurable criteria a scenario cannot carry: a guard, a budget, a benchmark bound, an eval
+  score, a count that must not change.
+
+## Affected specs
+Scenarios in other folders this feature adds, changes or removes, by folder and exact name.
+
+## Open questions
+Each one is answered by the user before approval, then moved into the text above.
+```
+
+A **technical feature** (performance, refactoring, tests, docs, layout) has a `spec.md` and no
+`.feature`: its Acceptance is all measurable ("`make test` stays at N passed", "statement count
+flat from 1 to 100 items", "p95 under X ms on the 10× world").
+
+## 2. The feature file
 
 ```gherkin
 Feature: Short Descriptive Name
   As a <role>
   I want to <capability>
   So that <business value>
+
+  # Domain rules and non-obvious cases, as comments.
 
   Background:
     Given <shared preconditions>
@@ -35,46 +74,34 @@ Feature: Short Descriptive Name
     Then <observable outcome>
 ```
 
-Rules:
-- One feature file per domain concept (not per endpoint or class)
-- Scenarios describe **behavior from the user's perspective** — no implementation details
-- Use `Background` for preconditions shared by all scenarios
-- Use tags for test categories:
-  - `@integration` — requires external services
-  - `@sequence-mock` — uses mock with sequenced responses
-  - `@documented-only` — can't be automated yet (add a comment explaining why)
-- Start with happy paths, then error cases, then edge cases
-- Include comments for domain rules and non-obvious business logic
-- **Explicit ambient state.** When a scenario depends on ambient state (current time, randomness, env, filesystem), the `Given` step must name the value explicitly (e.g., "Given the clock reads 14:00"). Don't leave ambient state implicit — non-deterministic scenarios produce flaky tests. The test layer will set the value via the thin-subclass seam from `/design` § 5.
-- **Audience-resolvable language.** Feature files are part of the project's documentation surface — readers of the docs may consult them as authoritative behavior specs. Use terms that resolve in that audience (domain vocabulary defined in the project), not internal jargon or references to private notes.
+- **Behavior only.** What a user sees or what the system's state shows; no class names, no
+  internals.
+- **One behavior per scenario**, and scenario names unique across all specs: tests cite them by
+  exact name.
+- **Happy paths first, then errors, then edge cases** (ZOMBIES, `/tdd`).
+- **Explicit ambient state.** A scenario that depends on the clock, randomness, env or the
+  filesystem names the value in its `Given` ("Given the clock reads 14:00").
+- **Audience-resolvable language.** Use the project's domain vocabulary; no references to
+  private notes or agent prompts.
+- **Tags:** only `@documented-only`, for a scenario that cannot be automated yet, with a comment
+  saying why. A test's kind (unit, integration) is its path, not a tag.
 
-## Step 2 — Coverage Review
+## 3. Changes to existing behavior
+A feature that changes what an existing scenario says edits that scenario **in its own folder**
+and lists it under "Affected specs". Never copy a scenario into the new folder. A renamed or
+removed scenario: find its citations (tests, design docs, ADRs) and list them for the plan, so
+they change in the same feature.
 
-Compare each scenario to existing tests:
-
-| Scenario | Test | Status |
-|----------|------|--------|
-| Name     | test function or "—" | Covered / Missing / Documented-only |
-
-Present this table to the user.
-
-## Step 3 — Implement Missing Tests
-
-For each missing automatable scenario, run a TDD cycle:
-1. Write a failing test that implements the scenario
-2. Implement minimum code to pass
-3. Refactor when green
-4. Run lint
-
-Skip `@documented-only` scenarios — they stay as specifications only.
+## 4. Approval
+Settle the open questions with the user (`AskUserQuestion`, previews for anything visual). Show
+the spec, set **Status: Approved** when the user approves, and commit it on the feature branch.
+Nothing is designed against a draft.
 
 ## Output
+- The spec folder (path), the scenario count added / changed / removed.
+- Affected specs and the citations a rename or removal breaks.
+- Questions still open, if the user has not approved yet.
 
-Report:
-- Feature file created/updated (path)
-- Coverage table
-- Tests added (names and what they cover)
-- Any scenarios left as documented-only and why
-- **Design touchpoints** (surface, don't act):
-  - **Scenarios added, renamed, or removed** — design docs and ADRs may cite feature scenarios by name (e.g., `features/X.feature` § "scenario Y"). Audit those citations for drift and update them in the same change (citation hygiene per `/design` § 6).
-  - **New feature file added** — if the project's design doc enumerates feature files as a spec-surface index, add the new file there.
+## What this skill is NOT
+- Not test writing (`/tdd`) and not a coverage audit (`/review`).
+- Not design: no layers, modules or ADRs here (`/design`).

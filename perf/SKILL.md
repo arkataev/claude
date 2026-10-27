@@ -6,9 +6,10 @@ argument: "audit", a change to check, or a path that feels slow
 
 # Performance: measure, don't guess
 
-Use it for three jobs:
-- **A change on a hot path:** a loop over stored data, a new query, matching against a whole catalog, a replay of a log. Save a baseline, then compare.
-- **An audit:** "where does it struggle", after a large feature, or now and then.
+This is the method. When it runs inside a feature is `/validate`'s: a full comparison before the
+merge, and a quick one on each step the plan marks hot path. Use this skill directly for:
+- **Planning a hot path:** a loop over stored data, a new query, matching against a whole catalog, a replay of a log. Prototype the fix and measure it (§ 3) before the plan rests on it.
+- **An audit:** "where does it struggle", after a large feature, or now and then. Findings become roadmap items, each with its prototype number.
 - **A symptom:** "slow after months of use", "the bot lags on big receipts".
 
 ## Ground rules
@@ -30,13 +31,17 @@ Use it for three jobs:
 
   Give each axis a size of its own, besides the sizes that grow everything. A cost that is
   linear in history hides behind sizes that grow the catalog and the history together.
+- **Give the worlds the states that bound a read**, not only sizes: a reset, a clear or a merge
+  near the end of the log. A read bounded by "since the last reset" can be fast on a log that
+  never resets and walk the whole history just after one; only a world with that state shows it.
 - **Local is not remote.** A variant that waits a fixed time before each statement (1 ms) turns
   round trips into time, with no network.
 - **A finding needs a measurement.** A profile beats intuition, and a prototype beats a profile.
 
 ## 1. Baseline
 Save a run on the commit before the change (`pytest --benchmark-autosave`, or the project's
-`make bench`). Write down the commit it belongs to.
+`make bench`). Write down the commit it belongs to; for a feature, that is the branch point,
+and the roadmap's "Now" names the run.
 
 ## 2. Audit: ten sweeps, one defect class each
 
@@ -68,7 +73,10 @@ How to read the long run:
   connections, threads, temp files, child processes. A long-running process fails on these, not
   on memory.
 
-Rank findings by how they grow, not by today's milliseconds.
+Rank findings by how they grow, not by today's milliseconds. A finding left for later gets its
+prototype number when it is found, or the reason it has none, and keeps its rank by growth: the
+current data being small is no reason to park it. A "later" list ranked by today's milliseconds
+carries a linear cost through audit after audit.
 
 ## 3. Prototype the fix before planning it
 Put the candidate into the long run or a benchmark from a script outside the repo (patch a
@@ -76,6 +84,33 @@ method, swap a query) and measure it. The expected gain is a hypothesis. A profi
 time in one function, but decoding in SQL saved 35%, because the cost was the rows, not the
 decoding. Plan the fix the measurement supports, and say in the plan which prototype numbers it
 rests on.
+
+**Prototype against the real dependency, not the tests' fake.** A fake carries the tests'
+assumptions. A test helper built an HTTP error with the URL in its message; a real one carries
+only the reason, and a "the token leaks into the warning" finding rested on the helper. Use the
+real library's error from a local server, a real file or connection, or the real SDK on a mock
+transport.
+
+**Time it in the states that bound what it reads,** not only on the benchmark sizes:
+- just after a reset, a clear or a merge;
+- on empty data, and with one item;
+- at the smallest input the operation is called with, as well as the largest (one receipt line
+  read, not only forty). An index or a cache built per call costs more than it saves when the
+  input is small: a word index that made 40 lines 7 times faster made 1 line 25–36% slower.
+
+A seek whose bound is a filter applied after the walk (`id > last_reset` on an index ordered by
+date) is flat on a world with no reset and walks every product's history just after one. Run the
+equality check of § 4 on the prototype's worlds before trusting its timings: a wrong fast path
+times nothing useful, and its varied worlds are where the slow states turn up.
+
+**An index is part of the fix.** Before adding or replacing one:
+- list the statements whose plans use that table's indexes (the `EXPLAIN` sweep's collection),
+  and check each still seeks;
+- benchmark the bare append or insert with it: every write pays for every index.
+
+An index that looks like it covers another may not answer the other's query: `(a, b, c)` gives
+`ORDER BY c` within `(a, b)`, but `MAX(id)` within `(a, b)` needs `(a, b)`, which carries the
+rowid at its end.
 
 ## 4. Prove the results are the same
 A fast path must give what the slow path gives, and a test proves it:
@@ -94,6 +129,15 @@ A fast path must give what the slow path gives, and a test proves it:
 - Compare against the baseline, with a threshold on the mean (20% is a sane default).
 - **Rerun a flagged benchmark alone** before believing it, and look at the stddev of both runs.
 - **When benchmarks you didn't touch move together** (every remote benchmark +15%), it's the machine.
+  To prove it, run an interleaved A/B: the old commit in a worktree and the new code, alternated
+  three times or more in one session, each selection with a control (a benchmark the change
+  cannot reach). Drift moves both sides and the control; the change moves only its own. Check
+  that the old side imports the old code: a shared virtualenv's editable install points at the
+  main tree, so put the worktree's source first on the path (`PYTHONPATH=<worktree>/src`) and
+  print a module's `__file__` once. An A/B whose sides run the same code agrees with anything.
+- **Save a run only from a commit.** An autosaved run is named after the checked-out commit, so a
+  run of uncommitted code carries the previous commit's name and becomes a wrong baseline. Commit,
+  then save.
 - **When the benchmarks show no gain but the long run does**, the benchmarks lack that axis: add a
   size.
 - Report every change over 10% in either direction, with before and after, in the commit message.
@@ -128,4 +172,4 @@ A fast path must give what the slow path gives, and a test proves it:
 ## See also
 - `/design` § 2, data access as if remote, and what each cost grows with.
 - `/tdd`, for the tests in §4.
-- `/feature-workflow`, its Bench setting.
+- `/validate`, which runs §5 for a feature and for a hot-path step.
