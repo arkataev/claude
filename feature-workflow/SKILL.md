@@ -1,26 +1,31 @@
 ---
-description: Build a roadmap feature spec-first as the designer — spec, plan, steps by the writer and reviewer agents, validate, changelog, merge
+description: Build a roadmap feature spec-first as the designer — spec, plan checked by the critic agent, steps by the writer and reviewer agents, validate, changelog, merge
 user_invocable: true
 argument: The roadmap item to start, "resume", or "step N" of the feature in progress
 ---
 
-# Feature Workflow (spec-driven; designer / writer / reviewer)
+# Feature Workflow (spec-driven; designer / critic / writer / reviewer)
 
 The main session is the **designer**: it specs, plans, briefs, triages, reviews, validates and
-commits. Two global agents do the rest, `writer` and `reviewer` (`~/.claude/agents/`). They never
-talk to each other or to the user; everything goes through the designer. The designer writes no
-feature code beyond small fixes.
+commits. Three global agents check and build (`~/.claude/agents/`): `critic` checks the plan,
+`writer` implements a brief, `reviewer` checks the writer's diff. They never talk to each other
+or to the user; everything goes through the designer. The designer writes no feature code beyond
+small fixes.
 
-Why this split: the writer is cheap and focused (Sonnet, one brief at a time), the reviewer is
-independent of the writer's reasoning (Opus, sees only the brief and the diff), and the designer
-keeps the whole picture and the user's decisions.
+Why this split: the writer is cheap and focused (Sonnet, one brief at a time); the reviewer is
+independent of the writer's reasoning (Opus, sees only the brief and the diff); the critic is
+independent of the designer's (Opus, sees only the spec, the plan and the code), so a plan gets
+the same second look as a diff, while a flaw in it costs a paragraph; the designer keeps the
+whole picture and the user's decisions. Architecture stays with the designer: it needs the
+conversation with the user, and every triage and designer review rests on it.
 
 ## The loop
 
 ```
 ROADMAP item ─► 0 Start: feature/<name>, baseline                          (/roadmap start)
   1 Spec       specs/<name>/spec.md + .feature              ◄ user approves  (/bdd)
-  2 Plan       specs/<name>/plan.md, steps, hot-path flags  ◄ user approves  (/design)
+  2 Plan       specs/<name>/plan.md, steps, hot-path flags
+               ─► critic ─► triage                          ◄ user approves  (/design)
   3 Each step  brief ─► writer ─► reviewer ─► triage ─► fix ─► designer review
                ─► [hot path: /validate step] ─► commit ─► roadmap Now     (/tdd, /review)
   4 Validate   the whole feature                                          (/validate)
@@ -35,12 +40,16 @@ is missing, use the default.
 | Setting | Default |
 |---|---|
 | **Gate**: the one command that must pass (lint, types, tests) | the project's test command |
+| **Format**: the command that applies formatting and auto-fixable lint | none |
+| **Guard files**: linter, type and import config, guard tests, test fences: what no agent loosens unless the brief says so | the linter and type-checker config |
 | **Collect check**: a count of opt-in or expensive tests that must match the plan | none |
 | **Off-limits**: runs the agents never make (paid APIs, services, bots) | anything that hits the network or a paid API |
 | **Protected files**: data never touched | none |
 | **Brief extras**: numbers or lists every brief states | none |
+| **Read first**: docs an agent reads before its first task, per agent | the brief's list |
 | **Test conventions**: test naming, citing scenarios, where tests live | the global TDD conventions |
-| **Review checklist**: the project's invariants the reviewer checks by name | the global architecture principles |
+| **Review checklist**: the project's invariants the critic and the reviewer check by name | the global architecture principles |
+| **Designer review**: diffs the designer reads besides the core | none |
 | **Evals**: paid or slow checks a prompt or model change runs (designer only) | none |
 | **Bench**: save a run, compare with one, profile (`/perf`) | none |
 | **Render**: what the designer looks at by hand on a scratch copy | none |
@@ -62,8 +71,17 @@ commit it. Nothing is planned against a draft.
 ## 2. Plan (`/design`)
 `specs/<name>/plan.md` against the approved spec: decisions, layers, data, ADR drafts, trace,
 steps. Each step names its scenarios and whether it is a **hot path** (with the prototype numbers
-it rests on, `/perf` § 3). **Gate: the user approves the plan**; commit it. Then each step starts
-on the user's "start".
+it rests on, `/perf` § 3).
+
+**Critic:** before the user sees the draft, spawn `subagent_type: "critic"` with the plan's path,
+plus notes such as decisions the user already made. Triage its findings as a step's: fix the
+blocking ones and the gaps you accept in the plan, and put its questions for the user to the
+user. Show the user the plan with the findings you rejected, one line each with why. A revision
+that answers blocking findings goes back to the same critic for a re-check (SendMessage). A plan
+amended after approval (a step added, a decision changed) gets a re-check of the amended
+sections.
+
+**Gate: the user approves the plan**; commit it. Then each step starts on the user's "start".
 
 ## 3. Each step
 
@@ -85,7 +103,9 @@ formats live in the agent definitions and the project's settings, not in each br
 
 **Writer:** spawn once per feature with `subagent_type: "writer"` and the brief's path, plus
 notes such as uncommitted user edits to leave alone. Reuse it with SendMessage for later steps
-and the fix round. It works by `/tdd`.
+and the fix round; a resumed session spawns a new one. It works by `/tdd`. A bug a guard or the
+validation finds after a step's commit is a new step with its own brief
+(`stepN-fix-brief.md`), not a fix round.
 
 **Reviewer:** spawn and reuse the same way with `subagent_type: "reviewer"` and the brief's path.
 It runs `/review` on the step's diff.
@@ -102,7 +122,12 @@ reviewer for a re-review of only those findings.
 
 Fix what breaks a rule, or send it back to the writer. A step is not committed on the
 reviewer's word alone. Read the core diff (domain, persistence, services, shared wording) and
-run the gate and the collect check.
+the diff of the guard files, and run the gate and the collect check. A loosened check goes in
+only when the brief asked for it, with its reason in the commit message.
+
+**Candidate guards:** a finding the reviewer marks as one a linter rule or a guard could have
+caught, and one that comes back across steps, is a roadmap item for a guard (`/roadmap`), not a
+reminder in the next brief.
 
 **Hot-path step:** `/validate step` before the commit (benchmark changes over 10% go in the
 commit message), and a run saved after it.

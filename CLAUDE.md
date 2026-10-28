@@ -16,7 +16,7 @@ Spec-driven. Every change starts from a spec; the roadmap says what comes next, 
 | `/refactoring` | Existing code — audit + targeted fix. Standalone or after `/tdd` reveals drift. References `/design` for target shape. |
 | `/perf` | The measuring method: prototype a fix before planning it, a performance audit, or a "slow after a while" symptom. |
 | `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |
-| `/feature-workflow` | Runs the loop for a roadmap feature — the main session specs, plans, briefs and triages; the global `writer` (Sonnet) and `reviewer` (Opus, read-only) agents implement and review. Project settings go in the project CLAUDE.md "Workflow" section. |
+| `/feature-workflow` | Runs the loop for a roadmap feature — the main session specs, plans, briefs and triages; the global `critic` (Opus, read-only) checks the plan before the user approves it, and the `writer` (Sonnet) and `reviewer` (Opus, read-only) agents implement and review. Project settings go in the project CLAUDE.md "Workflow" section. |
 
 ### Behavior modes
 | Skill | When to invoke |

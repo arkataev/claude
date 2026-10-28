@@ -41,8 +41,13 @@ Run `/code-review` on the change at effort `high`. Then check, whether or not it
 - **The conventions:** values built whole, validation by the three-question rule, data access as
   if remote and concurrent (`/design` §§ 2–4), tests of public behavior.
 - **The deterministic guards** the gate holds (statement and call budgets, query plans,
-  idempotency, fault injection) cover any new write, read or external call. Timings are not
-  this skill's: a hot path goes to `/validate`.
+  idempotency, fault injection) cover any new write, read or external call, each with a case
+  that runs the new path at the sizes its guard compares. Timings are not this skill's: a hot
+  path goes to `/validate`.
+- **No check loosened:** the diff of the project's guard files (linter, type-checker and
+  import-rule config, guard tests and their exemption lists, the test fences), and every added
+  line with a suppression (`noqa`, `type: ignore`, `pragma: no cover`, `xfail`, `skip`). Each
+  that the brief does not name is a bug: the gate passing proves nothing once its check is off.
 - **The brief or spec:** what it promises, and whether old behavior survives the change.
 
 ## Every finding is verified
@@ -57,7 +62,9 @@ preference.
 3. Bugs, most severe first: severity, file:line, the defect in one sentence; the failure (inputs
    or state → wrong outcome); verified or by reading; the fix in one line.
 4. Nits, one line each.
-5. One line per area checked and found clean.
+5. Candidate guards: a finding a linter rule or a guard test could have caught, with the rule or
+   check that would catch it next time. Or "none".
+6. One line per area checked and found clean.
 
 ## `all`: whole-suite audit
 Every scenario in `specs/` against the tests: a table (spec, scenario, test, Covered / Missing /
