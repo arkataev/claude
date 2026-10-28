@@ -6,6 +6,7 @@ effort: high
 disallowedTools: Edit, Write, NotebookEdit, Agent, AskUserQuestion
 skills:
   - review
+  - mutants
 color: purple
 ---
 
@@ -24,7 +25,9 @@ project's. Where the project's is more specific, it wins. The project's "Workflo
 the **gate**, the **guard files**, the **collect check**, the **off-limits** runs, the
 **protected files** and its **review checklist**. Check the writer's list of suppressions and
 guard-file changes against the diff yourself: a loosened check the brief does not name is a
-finding whether or not the writer listed it.
+finding whether or not the writer listed it. The list of equivalent mutants is one of them: an
+entry the diff adds needs a reason that holds for its line; one that hides a weak test is a
+finding.
 
 ## The review
 Run the `review` skill (preloaded) on the working-tree diff, judged against the brief: Pass 1
@@ -32,7 +35,9 @@ for the scenarios the brief names and the tests the diff touches, Pass 2 for cor
 finding verified or marked by reading. A breach in new code of the design rules (values built
 whole, data access as if remote and concurrent, layers one way, gateways decide nothing) or of
 an item of the project's review checklist is a finding, not a nit: the designer refuses the
-commit for it. A breach of style (naming, comments, docstrings) is a nit, unless it causes a bug.
+commit for it. So is a line of new code no test can see (Pass 1), checked by hand in a throwaway copy as the
+`mutants` skill (preloaded) says; you run no mutation sweep (`/validate` does, once per
+feature). A breach of style (naming, comments, docstrings) is a nit, unless it causes a bug.
 
 ## Rules (no exceptions)
 - Read-only: no file edits and no git writes. Use Bash only to read, to run the gate and offline

@@ -21,6 +21,7 @@ From the project CLAUDE.md "Workflow" section; with a setting missing, skip its 
 | **Evals** | the paid or slow checks a prompt, schema or model change must run, and their last scores |
 | **Bench** | save a run, compare with a saved one, profile |
 | **Render** | what to look at by hand on a scratch copy of real data |
+| **Mutation** | the mutation sweep's command for named source files, and the check of the tool itself when the setting names one |
 | **Protected files** | data never touched (copy it first) |
 
 ## Full mode (once per feature, on the feature branch, after the last step's commit)
@@ -47,7 +48,15 @@ and the run starts again from the top.
 6. **Profile.** For each flagged benchmark, or a new hot path with no benchmark yet: the
    project's profile command; name where the time went. A new hot path with no benchmark gets
    one (`/perf`), in this feature.
-7. **Render.** The project's render items on a scratch copy of the real data: the views the
+7. **Mutation.** The project's mutation command on every source file the feature changed
+   (`git diff --name-only <branch point> -- <source root>`), after the tool's own check when the
+   setting names one.
+   - A survivor the project's list of equivalents does not explain is a finding: a test to write,
+     dead code to delete, or an entry with its reason (`/mutants`, "Sorting survivors"), each made
+     in this feature.
+   - An entry no survivor matches any more (stale) is removed.
+   - Re-render the list when the setting says how.
+8. **Render.** The project's render items on a scratch copy of the real data: the views the
    feature changed, and one flow end to end per gateway it touched.
 
 Then write `specs/<feature>/validation.md` and commit it:
@@ -60,6 +69,7 @@ Acceptance: S/S scenarios cited and passing; documented-only: …; criteria: <ea
 Evals: not needed (no prompt change) | <eval>: before → after
 Benchmarks vs <baseline run>: no change over 10% | <name>: before → after (±x%), why
 Profile: <where the time goes, for anything flagged>
+Mutation: <files swept>: K killed, S known, 0 unexplained, 0 stale | not needed (no source file changed)
 Render: <what was looked at, what it showed>
 Still linear / left open: …
 ```

@@ -24,7 +24,9 @@ brief promises:
   every test file);
 - the test asserts what each Then clause says, with the scenario's values, not only a shape;
 - the test is at the scenario's level (a gateway scenario has a gateway test);
-- ambient state the scenario names is set explicitly (`/design` § 5).
+- ambient state the scenario names is set explicitly (`/design` § 5);
+- every line the diff adds to the source is one a test can see (`/mutants`): a suspect is
+  checked as that skill says, and is a weak test or dead code.
 
 Also: a renamed or removed scenario leaves no dangling citation (tests, design docs, ADRs), and
 a test the diff adds that cites nothing either belongs to a scenario that is missing or is an
@@ -44,8 +46,11 @@ Run `/code-review` on the change at effort `high`. Then check, whether or not it
   idempotency, fault injection) cover any new write, read or external call, each with a case
   that runs the new path at the sizes its guard compares. Timings are not this skill's: a hot
   path goes to `/validate`.
+- **Equivalent mutants:** each entry the diff adds to the project's list has a reason that holds
+  for its line (`/mutants`, "Sorting survivors"). An entry that hides a weak test is a bug.
 - **No check loosened:** the diff of the project's guard files (linter, type-checker and
-  import-rule config, guard tests and their exemption lists, the test fences), and every added
+  import-rule config, guard tests and their exemption lists, the test fences, the list of
+  equivalent mutants), and every added
   line with a suppression (`noqa`, `type: ignore`, `pragma: no cover`, `xfail`, `skip`). Each
   that the brief does not name is a bug: the gate passing proves nothing once its check is off.
 - **The brief or spec:** what it promises, and whether old behavior survives the change.
@@ -58,7 +63,8 @@ preference.
 
 ## Report (≤60 lines)
 1. The gate result (run it unless the caller just did).
-2. Pass 1: gaps and weak tests, each with the scenario name and test file:line. Or "none".
+2. Pass 1: gaps, weak tests and lines no test sees, each with the scenario name and test
+   file:line (or the source file:line and the change no test notices). Or "none".
 3. Bugs, most severe first: severity, file:line, the defect in one sentence; the failure (inputs
    or state → wrong outcome); verified or by reading; the fix in one line.
 4. Nits, one line each.

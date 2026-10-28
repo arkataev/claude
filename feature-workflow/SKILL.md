@@ -52,6 +52,7 @@ is missing, use the default.
 | **Designer review**: diffs the designer reads besides the core | none |
 | **Evals**: paid or slow checks a prompt or model change runs (designer only) | none |
 | **Bench**: save a run, compare with one, profile (`/perf`) | none |
+| **Mutation**: the sweep's command for named source files, its list of equivalents (an exemption list: a guard file), and the tool's own check | none |
 | **Render**: what the designer looks at by hand on a scratch copy | none |
 | **Specs / Roadmap / Changelog**: paths | `specs/`, `ROADMAP.md`, `CHANGELOG.md` |
 

@@ -28,7 +28,8 @@ first (`/bdd`); a one-off fix may go without.
 - Run that test alone and see it **fail for the right reason**.
 
 ### 2. Green
-- The **minimum code** that passes it. No untested code.
+- The **minimum code** that passes it. No untested code, and no line a test can't see
+  (`/mutants`).
 - Re-run the affected test files.
 
 ### 3. Refactor (only when green)

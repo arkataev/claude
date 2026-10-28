@@ -13,6 +13,7 @@ Spec-driven. Every change starts from a spec; the roadmap says what comes next, 
 | `/review` | The light check of any change (each step, or ad hoc): scenarios against tests, correctness against the rules. No timings. |
 | `/validate` | Once per feature before merge (and `step` mode on a hot-path step): gate, spec acceptance, evals, benchmarks, profile, render. |
 | `/changelog` | Close a feature: its `CHANGELOG.md` entry and the roadmap updated. |
+| `/mutants` | Code no test can miss: the checklist the writer and reviewer preload, checking one suspect line, sorting a sweep's survivors. |
 | `/refactoring` | Existing code — audit + targeted fix. Standalone or after `/tdd` reveals drift. References `/design` for target shape. |
 | `/perf` | The measuring method: prototype a fix before planning it, a performance audit, or a "slow after a while" symptom. |
 | `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |
@@ -73,6 +74,7 @@ Full format lives in `/bdd`. Contract that always holds:
 - **Test only public interfaces.** Privates are implementation details; tests against them break for the wrong reasons.
 - Given-when-then structure with blank lines separating sections.
 - If a test passes without implementing the expected behavior, the test is too weak — tighten assertions.
+- **Every line a test can see.** Code no test notices changing is a weak test or dead code; the checklist, and what no test should see, is `/mutants`.
 - **Inject I/O via callables** (reader, parser, etc.); tests use `Mock`. Never `monkeypatch` stdin/files.
 - **Use real objects with `Mock` / `patch.object`** for objects whose interface might drift, not handcrafted stubs.
 - **Unit and integration tests are two kinds, kept apart.** A *unit* test is pure: no database (not even in-memory), file, network, subprocess, real clock or environment; it runs with no infrastructure and replaces the repositories, ports and application API it calls with autospec mocks, so it tests business logic only. An *integration* test exercises a real adapter against its real dependency (SQL against the engine, a parser against real files, the wiring end to end). Each test is one kind, visible from its path (`tests/unit/`, `tests/integration/`), and the unit suite runs alone. Most tests are unit tests. See `/tdd` "Unit or integration".

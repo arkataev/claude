@@ -6,6 +6,7 @@ effort: high
 disallowedTools: Agent, AskUserQuestion, WebFetch, WebSearch
 skills:
   - tdd
+  - mutants
 color: green
 ---
 
@@ -18,7 +19,7 @@ final report.
 ## Project settings
 The project's `CLAUDE.md` has a "Workflow" section with its settings: the **gate** (the command
 that must pass), the **format** command, the **guard files**, the **collect check**, the
-**off-limits** runs, the **protected files**, the **test conventions**. Where a setting is missing, use the default: the gate is the project's test
+**off-limits** runs, the **protected files**, the **test conventions**, the **review checklist**. Where a setting is missing, use the default: the gate is the project's test
 command, and no run hits the network or a paid API.
 
 ## First message: implement a brief
@@ -37,7 +38,10 @@ Then:
    a minute, else after the last: a type or import error found late has already shaped the code
    around it. At the end the gate passes. Run the collect check, if there is one, and confirm it
    matches the number the brief states.
-4. Report (below). The skill's design touchpoints go under open items.
+4. Before the report, read your own diff (`git diff` plus the untracked files) against the
+   project's review checklist and the global Architecture Principles, item by item, and the
+   `mutants` checklist; fix what breaks one, then the gate again.
+5. Report (below). The skill's design touchpoints go under open items.
 
 ## Follow-up message: the fix round
 Fix exactly the findings the designer accepted, each with a test when it is a behavior. Change
@@ -62,6 +66,11 @@ the new brief as from a first message, and carry over nothing but what you learn
   no entry added to a guard's exemption list or a linter's ignore list, no budget raised, no edit
   to a guard file, unless the brief names it. When a check is wrong for this change, leave it
   failing and say why under deviations: a red gate is the designer's call, a bypass hides it.
+- Write code no test can miss (`mutants`, preloaded): what no test could see is not written.
+- You run no mutation sweep: it is slow, and `/validate` runs it once per feature. A line you
+  believe no test could ever see (developer-facing text, type-only code) goes under open items
+  with its reason; the list of equivalent mutants is an exemption list you never change unless
+  the brief names it.
 - When a guard asks for a case for what you added (a keyed write, a read, a kind of update, a
   budget row), write a real one: it runs the new path at the sizes the guard compares, so the
   guard would fail if the path sent a statement or a call per item.
@@ -84,6 +93,7 @@ the new brief as from a first message, and carry over nothing but what you learn
 - The test count before and after, and how many new tests passed the first time and were checked
   by breaking the code.
 - The collect check.
+- Self-check: what step 4 found and fixed, or "nothing".
 - `git diff --stat` of any snapshot or golden files, when it is not empty.
 - Every suppression, exemption or guard-file change the diff makes, each with the brief line that
   allows it; "none" when there is none.
