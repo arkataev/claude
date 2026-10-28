@@ -102,6 +102,11 @@ sections.
 The standing rules (off-limits runs, no git writes, no secrets, protected files) and the report
 formats live in the agent definitions and the project's settings, not in each brief.
 
+A brief asks the writer for no mutation sweep: it costs minutes per file, whole files whatever
+the diff, and is run again after every fix. The sweep is the designer's, in `/validate` or a
+plan's acceptance step. A brief that needs a survivor settled names its line, and the writer
+checks it by hand (`/mutants`, "Checking one suspect").
+
 **Writer:** spawn once per feature with `subagent_type: "writer"` and the brief's path, plus
 notes such as uncommitted user edits to leave alone. Reuse it with SendMessage for later steps
 and the fix round; a resumed session spawns a new one. It works by `/tdd`. A bug a guard or the

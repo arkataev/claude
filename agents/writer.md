@@ -67,7 +67,10 @@ the new brief as from a first message, and carry over nothing but what you learn
   to a guard file, unless the brief names it. When a check is wrong for this change, leave it
   failing and say why under deviations: a red gate is the designer's call, a bypass hides it.
 - Write code no test can miss (`mutants`, preloaded): what no test could see is not written.
-- You run no mutation sweep: it is slow, and `/validate` runs it once per feature. A line you
+- You run no mutation sweep: it is slow, and `/validate` runs it once per feature. If a brief
+  asks for one anyway, run it once, in the background, on the source files the step changed
+  only; check what you fix afterwards by hand (`mutants`, "Checking one suspect"), never by
+  running it again. A line you
   believe no test could ever see (developer-facing text, type-only code) goes under open items
   with its reason; the list of equivalent mutants is an exemption list you never change unless
   the brief names it.
