@@ -77,6 +77,8 @@ Full format lives in `/bdd`. Contract that always holds:
 - **Every line a test can see.** Code no test notices changing is a weak test or dead code; the checklist, and what no test should see, is `/mutants`.
 - **Inject I/O via callables** (reader, parser, etc.); tests use `Mock`. Never `monkeypatch` stdin/files.
 - **Use real objects with `Mock` / `patch.object`** for objects whose interface might drift, not handcrafted stubs.
+- **Tests are type-checked like the source.** A `# type: ignore` is allowed only on a value invalid on purpose, with one code and a `# refused:` reason; there is no `cast`. See `/tdd` "Fixtures and types".
+- **A fixture is a value**: a real class, or a fake typed by its `Protocol`. What varies is a knob fixture, set with `parametrize` or a class override; actions are plain functions and recorders are small classes; there are no closures in fixtures. See `/tdd` "Fixtures and types".
 - **Unit and integration tests are two kinds, kept apart.** A *unit* test is pure: no database (not even in-memory), file, network, subprocess, real clock or environment; it runs with no infrastructure and replaces the repositories, ports and application API it calls with autospec mocks, so it tests business logic only. An *integration* test exercises a real adapter against its real dependency (SQL against the engine, a parser against real files, the wiring end to end). Each test is one kind, visible from its path (`tests/unit/`, `tests/integration/`), and the unit suite runs alone. Most tests are unit tests. See `/tdd` "Unit or integration".
 **ZOMBIES** for test discovery: Zero, One, Many, Boundaries, Interfaces, Exceptions, Simple.
 ## Performance Conventions

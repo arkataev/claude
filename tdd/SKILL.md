@@ -64,6 +64,52 @@ Two kinds of test, kept in two trees (`tests/unit/`, `tests/integration/`, each 
 
 **Choosing.** A rule is tested at unit level; the SQL, serialization or protocol that carries it at integration level. Never test a business rule only through the database. Most tests are unit tests: if the integration tree outgrows the unit tree, rules are being tested in the wrong place.
 
+## Fixtures and types
+
+Tests are type-checked with the source's rules, so a test cannot build a value the code never
+receives.
+
+**A fixture is a value.** It returns one object of a real class, or a fake typed by the
+`Protocol` it implements. It never returns a function, and its body defines no function or
+lambda. The one exception is a lambda handed to a class of the code as that class's own seam,
+such as `Household(db, clock, lambda: model, lang)`.
+- **What varies is a fixture too.** Make it a "knob" fixture (`model`, `lang`, `db`) that the
+  value fixture takes. One test turns a knob with `@pytest.mark.parametrize("model", [...])`.
+  pytest applies the value even when the test takes only the fixture built on the knob. A group
+  of tests turns a knob by overriding the knob fixture in its class.
+- **An action is a plain function**, not a fixture. Examples are `press(bot, button)` and
+  `send(bot, text)`, with typed parameters.
+- **A recorder is a small class.** A fixture that collects what happened returns an object
+  with typed methods, not a closure.
+- **A double's behavior lives in a fake class, a recorder class or a module-level function.**
+  It is not a `side_effect = lambda ...` or an inner function written in the fixture.
+- **No `None` stands in for a collaborator.** Use a fake that fails the test and names the
+  call. No fixture has a parameter that no test passes.
+- **A test body defines no class and no function.** A fake, a recorder or a subclass a test
+  needs (a connection that records what it opened, a model that fails) is a module-level class,
+  and a helper is a module-level function. The test may build an instance of it like any value
+  (`FakeInterpreter(...)`); a fixture hands it over when it needs other fixtures to be set up or
+  a teardown. A lambda in a test body is fine (`lambda: model` as a seam, a one-line
+  `side_effect`).
+- **A double reaches the code through a seam, never by overriding a builtin.** A `list` subclass
+  whose `__getitem__` runs something when the code slices it depends on how the code reads a
+  value it is given, and breaks for the wrong reasons. Reach the moment through a parameter of the
+  code or a hook the driver offers (a connection's trace callback runs as each statement starts).
+  Nothing in a test is `@overload`ed: a helper with two signatures is two helpers.
+- **A fake that records calls is never shared between tests.** A `parametrize` value is built
+  once, at collection. So never set a recording fake in a class-level `parametrize`, and never
+  use one module-level fake in two decorators. A class-level override of the knob builds one
+  fake per test.
+
+**A `# type: ignore` only for a value that is invalid on purpose.** This is the line that
+passes a wrong type to see the code refuse it. It names exactly one error code and says what the
+test checks: `# type: ignore[arg-type]  # refused: <what the code refuses>`. Every other type
+error is fixed, never ignored. Tests use no `cast` (narrow with `isinstance` and `assert`), no
+`@no_type_check` and no inline `# mypy:` comment. Nor do they use another way to turn a value
+into `Any` and hand it to a typed name, such as `operator.methodcaller`, `attrgetter` or
+`getattr` with a constant. A fake that has to stand in for several ports takes one part per
+port, each typed by its `Protocol`.
+
 ## Test discovery (ZOMBIES)
 **Z**ero, **O**ne, **M**any, **B**oundaries, **I**nterface, **E**xceptions (happy paths first),
 **S**imple scenarios first.
