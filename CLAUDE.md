@@ -13,7 +13,7 @@ Spec-driven. Every change starts from a spec; the roadmap says what comes next, 
 | `/review` | The light check of any change (each step, or ad hoc): scenarios against tests, correctness against the rules. No timings. |
 | `/validate` | Once per feature before merge (and `step` mode on a hot-path step): gate, spec acceptance, evals, benchmarks, profile, render. |
 | `/changelog` | Close a feature: its `CHANGELOG.md` entry and the roadmap updated. |
-| `/mutants` | Code no test can miss: the checklist the writer and reviewer preload, checking one suspect line, sorting a sweep's survivors. |
+| `/mutants` | Code no test can miss: the checklist the writer and reviewer preload, checking one suspect line, the audit and sorting its survivors. |
 | `/refactoring` | Existing code — audit + targeted fix. Standalone or after `/tdd` reveals drift. References `/design` for target shape. |
 | `/perf` | The measuring method: prototype a fix before planning it, a performance audit, or a "slow after a while" symptom. |
 | `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |

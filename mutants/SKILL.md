@@ -10,7 +10,7 @@ A mutant is one small change to the code: `<` becomes `<=`, a call is deleted, a
 It survives when no test fails. A survivor is a weak test or dead code. A mutation sweep finds
 survivors after the fact and is slow (minutes per file); this checklist is what keeps it from
 finding any. The writer applies it while writing (with `/tdd`), the reviewer in `/review` Pass 1,
-and `/validate` when it sorts a sweep's survivors. Judge only the lines a change adds or edits.
+and an audit when it sorts the sweep's survivors. Judge only the lines a change adds or edits.
 
 ## Every line a test can see
 For each such line, some test fails when:
@@ -58,7 +58,7 @@ else no test sees is a test to write or code to delete.
   (not the database or the virtual environment) and run the project's interpreter with the
   copy's source first on `PYTHONPATH`. An editable install otherwise imports the working tree,
   and every mutant "survives".
-- No failure: it survives. Neither runs the sweep; `/validate` does, once per feature.
+- No failure: it survives. Neither runs the sweep; it runs in an audit.
 
 ## Sorting survivors
 Each survivor is one of:
@@ -70,7 +70,19 @@ Each survivor is one of:
 The list is an exemption list, like a linter's ignore list. An entry is added only where the
 brief or the user allows it, and one that hides a weak test is a bug. The writer never changes
 the list; an entry the sweep reports stale (its code is gone, or a test now kills it) is removed
-in `/validate`.
+in the audit.
+
+## The audit
+The sweep is an audit of the whole tree, not a step of each feature. A survivor depends on every
+test, so a sweep of one feature's files misses what other changes weaken, and a whole-tree sweep
+takes too long to run per feature. It runs when the user asks (suggest one after a few features
+have merged), on a branch `audit/mutation-<date>`, with the project's mutation command over every
+source file, in the background:
+1. sort every survivor the list does not explain (above), and remove the stale entries;
+2. confirm the sort by hand ("Checking one suspect") or with a sweep of the files involved, never
+   by running the whole audit again;
+3. the gate passes; one changelog entry with the audit's numbers (mutants, kills, survivors,
+   time), and the roadmap's audit item names this one; merge `--no-ff`.
 
 ## Report (when invoked alone)
 Per suspect: file:line, the change no test notices, and how it was checked (by hand or by

@@ -36,8 +36,8 @@ finding verified or marked by reading. A breach in new code of the design rules 
 whole, data access as if remote and concurrent, layers one way, gateways decide nothing) or of
 an item of the project's review checklist is a finding, not a nit: the designer refuses the
 commit for it. So is a line of new code no test can see (Pass 1), checked by hand in a throwaway copy as the
-`mutants` skill (preloaded) says; you run no mutation sweep (`/validate` does, once per
-feature). A breach of style (naming, comments, docstrings) is a nit, unless it causes a bug.
+`mutants` skill (preloaded) says; you run no mutation sweep (it runs in an audit,
+`mutants` "The audit"). A breach of style (naming, comments, docstrings) is a nit, unless it causes a bug.
 
 ## Rules (no exceptions)
 - Read-only: no file edits and no git writes. Use Bash only to read, to run the gate and offline
