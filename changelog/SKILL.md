@@ -62,10 +62,24 @@ Rules:
 - An empty section is left out, except Numbers.
 - The entry is append-only once merged: a correction is a new entry or a dated note under it.
 
+## Then compact the spec folder
+Once the entry is written, `specs/<feature>/` says what was built, not how it got there; the
+history stays in git:
+- `spec.md`: the job, scope, acceptance and affected specs; settled questions and restated
+  reasons are dropped.
+- `plan.md`: the design as built: the decisions still true, modules, data model, interfaces,
+  data access, the trace, and any list another document points to. The step table, decisions
+  taken back, and ADR drafts now in the design doc go.
+- `validation.md`: the last validation's numbers and what is left open; earlier re-runs go.
+- The briefs are deleted.
+
+Every pointer into the folder (roadmap, changelog, ADR references) still resolves afterwards.
+
 ## Then the roadmap
 Through `/roadmap`: mark the item done (it leaves Now/Next, pointing to this entry), add each
 follow-up, and update "To confirm with the user" with questions the feature raised. Set the
-spec's status to `Done (CHANGELOG <date>)`. Commit all three with the entry.
+spec's status to `Done (CHANGELOG <date>)`. Commit them, and the compacted spec folder, with the
+entry.
 
 ## Output
 The entry, the roadmap diff, and what the user should try before the merge.

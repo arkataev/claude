@@ -53,7 +53,7 @@ Two kinds of test, kept in two trees (`tests/unit/`, `tests/integration/`, each 
 
 **Unit test** — business logic, nothing else.
 - Opens no database (an in-memory one is still a database), file, socket, subprocess or real model; reads no real clock or environment. The unit tree's conftest makes those fail, so a slip is caught, not trusted.
-- What the code under test calls across a boundary — repositories, ports, the application API, I/O callables — is an autospec mock (`create_autospec(Repo, instance=True)`), never a hand-written fake of the adapter: a fake re-implements the adapter's behavior and drifts from it. A unit of work's `run(work)` mock just calls `work`.
+- What the code under test calls across a boundary — repositories, ports, the application API, I/O callables — is an autospec mock of its interface (`create_autospec(Repo, instance=True)`, `Repo` the `Protocol`, never the implementation), never a hand-written fake of the adapter: a fake re-implements the adapter's behavior and drifts from it. A unit of work's `run(work)` mock just calls `work`.
 - Arrange the mocks' return values as the facts the logic decides on (domain values, not rows). Assert on what comes back and on the **writes** handed to the mocks (a write is the code's output); never assert on which reads happened or in what order. A test that has to script many reads is pointing at logic that belongs in a domain value: move the rule there and test it directly.
 - Layers: domain rules (no mocks at all), services (repositories and ports mocked), gateways (the application API mocked; assert on what is rendered or sent).
 
