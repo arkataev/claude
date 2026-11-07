@@ -1,0 +1,54 @@
+# The tools that hold the Code rules of the principles catalog (SKILL.md, next to this file).
+# Copy the sections into the project's pyproject.toml. Each line names the rule it holds.
+# Only the user changes a limit or adds an exemption. When a project adopts this file, its
+# existing breaches go under per-file-ignores, one line per file, so new code meets the rules.
+#
+# Not held here, because no Ruff or mypy rule can check them:
+#   T1, T2  a guard test that scans annotations in the AST (returns; Protocol parameters)
+#   S2      public methods per class (Ruff PLR0904 is preview only)
+#   L1, L2, R1, R3, K3   the critic or the reviewer
+
+[tool.ruff.lint]
+extend-select = [
+    "ANN",                  # T1: every signature annotated; ANN401: no Any (T3)
+    "TID251",               # T3 and imports: the banned APIs below
+    "PLC0415",              # imports at module scope only (global)
+    "PLR0913",              # S2, K1: arguments
+    "PLR0911",              # K1: returns
+    "PLR0912",              # K1: branches
+    "PLR0915",              # K1: statements
+    "C901",                 # K1: complexity
+    "FBT001", "FBT002",     # K2: positional flag arguments
+    "PLR2004",              # R2: a compared number is a named constant
+]
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-returns = 6
+max-branches = 12
+max-statements = 50
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.cast".msg = "T3: parse or narrow with isinstance; a cast claims what a check should prove"
+"typing.TYPE_CHECKING".msg = "Imports at module scope only: a cycle is a design problem"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are exempt from the size limits, flags and literals: a test states its values, and
+# a step function takes many fixtures. Tests keep ANN and TID251: they are type-checked too.
+"**/tests/**" = ["PLR0913", "PLR0911", "PLR0912", "PLR0915", "C901", "FBT001", "FBT002", "PLR2004"]
+"**/conftest.py" = ["PLR0913", "PLR0911", "PLR0912", "PLR0915", "C901", "FBT001", "FBT002", "PLR2004"]
+
+[tool.mypy]
+explicit_package_bases = true   # a src/ layout with mypy_path = "src"; tests need no __init__.py
+strict = true
+disallow_any_explicit = true    # T3
+warn_unreachable = true
+enable_error_code = [
+    "exhaustive-match",         # T4
+    "redundant-cast",
+    "ignore-without-code",      # global: a type: ignore names one code
+    "possibly-undefined",
+]
