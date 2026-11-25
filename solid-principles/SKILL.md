@@ -1,5 +1,5 @@
 ---
-description: The solid flow's rule catalog — typed I/O, SOLID, DRY, KISS/YAGNI, the pure domain with adapters that own their model, tests by layer — each rule with the role that owns it and what holds it. Preloaded by solid-design's designer and by solid-critic, solid-writer and solid-reviewer
+description: The solid flow's rule catalog — typed I/O, SOLID, explicit wiring, DRY, KISS/YAGNI, the pure domain with adapters that own their model, tests by layer — each rule with the role that owns it and what holds it. Preloaded by solid-design's designer and by solid-critic, solid-writer and solid-reviewer
 user_invocable: true
 ---
 
@@ -92,6 +92,25 @@ lists each member, with no `case _:` fallback.
   falling silently into a default.
 - Too much: an open set (any `str`, any `int`) needs a default.
 - Held by: mypy `exhaustive-match`. The reviewer catches a `case _:` over a closed set.
+
+**T5 · Code · A collaborator is called by name, with concrete types.** Each call to an owner, an
+adapter or a port is written at its call site: `self._catalog.get_products(ids) if ids else []`. No
+helper takes a collaborator's method as a `Callable` and calls it for the caller (`_ask(items,
+self._catalog.get_products)`). No function has type parameters on its input or output, in the `def
+f[T]` form or through a `TypeVar` (`def _ask[S, A](items: Sequence[S], ask: Callable[[Sequence[S]],
+Sequence[A]]) -> Sequence[A]`). A private helper is fine when its types are concrete and it does one
+job, even for two call sites that need it. This holds in tests too: a test helper has concrete
+types. T5 is E1 at a call site.
+- Why: an indirect call hides which collaborator is asked and what it gives back, from the reader
+  and from a search for the method's callers. A type variable in a signature says the function
+  works for anything, so its name cannot say what it does (the user, 2026-11-12).
+- Too much: a standard-library or framework API that takes a callable (`sorted(key=…)`, a
+  pytest-bdd step, a `side_effect`) is that library's interface, not ours. A dependency injected
+  through a constructor is a seam (K3, `/solid-design` § 5), not a helper that calls for its
+  caller.
+- Held by: the reviewer (a `def name[…]`, a parameter annotated `Callable[…]`, or a helper that
+  calls a collaborator it was handed). Candidate guard: an AST scan of the source and test trees
+  for `FunctionDef.type_params`, a `TypeVar` in a signature, and `Callable` parameter annotations.
 
 ## Single responsibility (S)
 
@@ -215,6 +234,31 @@ each value's own classmethod.
 - Held by: the critic (the plan's trace names the mapping); the reviewer (a domain value built
   in an adapter, or a stored value in the domain).
 
+## Explicit (E)
+
+Global: dependencies are passed in, and only the composition root names an implementation (D).
+T5 is this rule at a call site.
+
+**E1 · Shape · What code does and what it depends on is written where it happens.** The
+composition root builds each collaborator by name and passes it to the code that uses it
+(`controller = ProductController(catalog)`, then `Chat(controller)`). A policy that differs per
+collaborator is built per collaborator in the composition root and passed in: each upstream gets
+its own retry, rate and breaker policy, and the adapter depends on its policy; it does not build
+or own it. A step every handler takes (a summary log line, a check) is a call written in each
+handler. There is no factory that builds collaborators out of sight, no configuration object
+that all adapters share, no hook, middleware or base class that does work a handler owns, and no
+helper that calls a collaborator for its caller (T5).
+- Why: a reader of one function sees everything it does and everything it needs, without knowing
+  a mechanism elsewhere. A hidden shared mechanism is also coupling: a change to it changes every
+  user, and a user that needs something different (one method with another retry policy) has no
+  place to say so (the user, 2026-11-12, 2026-11-23, 2026-11-24).
+- Too much: instrumentation the framework owns and no handler varies (trace spans, request IDs)
+  stays in the framework's hook. A decorator that takes its policy at each method
+  (`@guarded(policy)`) is explicit: the policy is named where it applies.
+- Held by: the critic (the plan says where each object is built, what it receives, and each
+  collaborator's policy); the reviewer (a factory, a shared configuration object, a hook that
+  does a handler's work, an adapter that builds its own policy).
+
 ## Don't repeat yourself (R)
 
 Global: every value has one owner, an invariant lives in one place, validation is not repeated
@@ -226,7 +270,10 @@ purpose has an ADR and a guard that the copies agree.
 - Why: two sources drift, and the bug is in whichever one was not updated.
 - Too much: a test states its expected value itself. A test that derives it from the code proves
   nothing. An adapter's storage vocabulary is not a copy of the domain's (D2): the mapper (D3)
-  is the guard that the two agree.
+  is the guard that the two agree. A one-line call repeated at each site that needs it
+  (`_log_summary(...)` in each endpoint) is not a second source: the knowledge lives in the
+  function it calls. A hidden mechanism that saves the repetition costs more than the line
+  (E1).
 - Held by: the critic (the plan says where each new rule lives); the reviewer (the diff adds no
   second source). On demand, an audit for exact copies:
   `uv run --with pylint pylint <src> --disable=all --enable=duplicate-code`.

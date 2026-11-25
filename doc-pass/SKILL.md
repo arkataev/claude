@@ -39,7 +39,7 @@ Single message, three `Agent` tool calls. Each subagent gets the same target sli
 
 **STYLE_COP** — `Explore` agent (read-only)
 - Input: the target code's existing docs + the global Documentation style rules (`~/.claude/CLAUDE.md` § Documentation) + the project's `CLAUDE.md` if present.
-- Output: a list of `{location, verdict (flag/accept), reason}`. Flags filler words, jargon when a plain term exists, inconsistent terminology, WHAT comments that should be WHY, oversized prose blocks.
+- Output: a list of `{location, verdict (flag/accept), reason}`. Flags filler words, jargon when a plain term exists, implicit prose (a term used before it is defined, a "this" or "it" with no named antecedent, a fact that does not say what it means for the reader), inconsistent terminology, WHAT comments that should be WHY, oversized prose blocks.
 - Does NOT propose replacements — it only flags. DRAFTER (or step 3) decides what to do.
 
 **VERIFIER** — `general-purpose` agent (can run Bash)

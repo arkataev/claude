@@ -120,6 +120,7 @@ Full workflow lives in `/refactoring`. Contract that always holds:
 - **WHY over WHAT** — same rule as comments. Docs explain motivation, constraints, and non-obvious context; WHAT belongs in the code's identifiers.
 - **Don't restructure well-written existing docs without an explicit request.** Add and refine sections; rewrite the structure only when asked. Wholesale rewrites of already-good prose are a source of regression and tone drift.
 - **Consistent domain terminology.** Use the terms the project's CLAUDE.md or design doc establishes — don't introduce synonyms when an existing project-defined term covers the meaning.
+- **Nothing implicit.** Define a term before its first use ("frozen", "to flag"), give every "this" or "it" a named antecedent, and follow each fact with what it means for the reader. A reader who must guess what a sentence refers to, or why it is there, stops reading the document and starts reconstructing it.
 - **No filler words.** Drop "simply", "just", "basically", "in order to", "it is important to note that". Lead with the substantive point.
 - **Prefer multiple focused docs over one bloated one.** A long README is harder to maintain than a few focused docs that link to each other.
 
