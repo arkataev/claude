@@ -54,3 +54,7 @@ Rules:
   3. create `specs/<item>/` and hand over to `/bdd` (an existing folder: the spec is updated);
   4. write Now, commit `ROADMAP.md` on the branch.
 - **now** — update the Now block (called by `/feature-workflow` at each commit).
+
+## In a timed build
+`/interview-build` keeps a one-session `ROADMAP.md` in this format, with slices as items and no
+branches, specs or changelog. That skill defines the session format and does not load this one.

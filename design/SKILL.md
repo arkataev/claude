@@ -244,3 +244,4 @@ and commit it on the feature branch.
 - Not a code generator. It produces decisions, not code.
 - Not a spec (`/bdd`) and not implementation (`/tdd`).
 - Not a forced ceremony. Every step has a guardrail for when it's over-engineering. Skip the steps whose guardrails fail.
+- Not for a timed live build (an interview, a hackathon hour): `/interview-build` carries this skill's judgment without its documents.

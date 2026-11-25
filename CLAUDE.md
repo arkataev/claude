@@ -18,12 +18,14 @@ Spec-driven. Every change starts from a spec; the roadmap says what comes next, 
 | `/perf` | The measuring method: prototype a fix before planning it, a performance audit, or a "slow after a while" symptom. |
 | `/doc-pass` | Documentation pass — three parallel subagents (DRAFTER + STYLE_COP + VERIFIER) converge on a reviewable diff in one or two rounds. |
 | `/feature-workflow` | Runs the loop for a roadmap feature — the main session specs, plans, briefs and triages; the global `critic` (Opus, read-only) checks the plan before the user approves it, and the `writer` (Sonnet) and `reviewer` (Opus, read-only) agents implement and review. Project settings go in the project CLAUDE.md "Workflow" section. |
+| `/feature-workflow-egm` | A/B trial of `/feature-workflow`: the same loop and settings, plus fresh-context ("goldfish") reviews from the `egm` plugin (Google's Elephant-Goldfish Model) — a comprehension pass on the spec, EGM's review loop on the plan (`critic-egm` and zoom-out, fresh each round, ending at the first clean round, ≤3 rounds), a readiness pass on each brief, a fresh reviewer per step, reports in `specs/<feature>/reviews/`. The plugin is a dependency because it holds the review personas, the loop's convergence rules and the resolution steps, which we use rather than rewrite. Chosen per feature at `/roadmap start`; one of the two is deleted when the trial ends. |
 
 ### Behavior modes
 | Skill | When to invoke |
 |---|---|
 | `/coach` | Guidance-only mode for design coaching, interview prep, and learning. No file edits; user drives implementation. |
 | `/short` | Terse, code-first answers to "how do I X in Y" questions. For live-coding and quick reference. Complements `/coach`. |
+| `/interview-build` | Timed live build with AI tools (e.g. a 90-min interview): frame with the interviewer, one-screen `DESIGN.md`, vertical slices that always run. While it runs, its "What this session suspends" section overrides this file. |
 
 ### Tooling
 | Skill | When to invoke |

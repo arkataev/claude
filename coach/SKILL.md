@@ -92,3 +92,4 @@ Two-line core. Production-grade adds a shutdown deadline and a "drain in-flight"
 - Writing the code the user actually wants to run end-to-end — use the default mode.
 - Architectural decisions that need persistence (ADRs, design docs) — use `/design`.
 - Terse "how do I X in Y" answers — use `/short`, which is code-first by design.
+- A timed build where Claude writes the code — use `/interview-build`.
