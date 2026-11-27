@@ -14,6 +14,9 @@ from pathlib import Path
 PROMPT = """Review the change for the brief {brief}.
 
 {lens}
+The caller ran the gate in CI just now, on this same commit: {gate}. Do not run it again; report
+this result as the gate's.
+
 This is a CI run on a pull request. The change under review is the working-tree diff against the
 PR's base (`git diff` plus the untracked files in `git status`). There is no designer to ask and
 no follow-up message: give your whole review in this one answer. Your final answer must match the
@@ -38,7 +41,7 @@ def main() -> int:
     flow, home = Path(args.flow), Path(args.claude_home)
     agent = AgentFile.read(home / "agents" / f"{args.agent}.md")
     skills = {name: (home / "skills" / name / "SKILL.md").read_text() for name in agent.skills}
-    prompt = PROMPT.format(brief=args.brief, lens=(flow / "ci/lenses" / f"{args.lens}.md").read_text())
+    prompt = PROMPT.format(brief=args.brief, gate=args.gate, lens=(flow / "ci/lenses" / f"{args.lens}.md").read_text())
     command = review_command(args.agent, agent, skills, (flow / "ci/findings.schema.json").read_text(), args.budget)
     started = time.monotonic()
     result = _run(command, prompt)
@@ -127,6 +130,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--claude-home", default=str(Path.home() / ".claude"))
     parser.add_argument("--out", required=True)
     parser.add_argument("--budget", default="3")
+    parser.add_argument("--gate", required=True, help="the gate's result, as the CI ran it")
     return parser.parse_args()
 
 

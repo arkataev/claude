@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 MARKER = "<!-- flow-scorecard -->"
-ORDER = ("size", "scenarios", "interface")
+ORDER = ("gate", "size", "scenarios", "interface")
 MARK = {"pass": "✅", "exempt": "☑️", "warn": "⚠️", "fail": "❌"}
 
 

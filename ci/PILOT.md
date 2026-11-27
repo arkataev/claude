@@ -43,6 +43,15 @@ status:
   path), compared with the base by `ast`. Any change fails unless the PR description has
   `Interface change: <spec folder>` and every changed name appears in a Markdown file there.
 
+- **gate** (`ci/run_gate.py`): the project's own gate command (`make -k test` by default, so a
+  fix round sees every failing step at once), run once on a clean checkout. The flow runs no
+  linter of its own: the project's config decides, locally and in CI alike. With
+  `RUFF_OUTPUT_FORMAT=github`, Ruff marks its findings on the PR's lines.
+
+`/review` runs the same gate once before any reviewer. If it fails, the review is skipped with a
+comment that shows why; if it passes, the reviewers get its result and do not run it again (the
+review skills already say "run it unless the caller just did").
+
 The plan's and the brief's side (a size per step, the writer's stop) goes into a parallel copy of
 the workflow skill; the existing skills and agents do not change.
 

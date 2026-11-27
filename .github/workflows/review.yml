@@ -25,6 +25,10 @@ on:
         description: "The project's install command, run before the gate."
         type: string
         default: "uv sync --locked"
+      gate:
+        description: "The project's gate, run once before the reviewers."
+        type: string
+        default: "make -k test"
       flow_repo:
         type: string
         default: "arkataev/claude"
@@ -83,8 +87,77 @@ jobs:
             -q '"head=\(.headRefOid)\nbase=\(.baseRefName)"' >> "$GITHUB_OUTPUT"
           gh pr comment "$PR" -R "$REPO" --body "Flow review started for \`$brief\`, lenses \`$lenses\`: $RUN_URL"
 
-  lens:
+  gate:
     needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      state: ${{ steps.read.outputs.state }}
+      headline: ${{ steps.read.outputs.headline }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.head }}
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.flow_repo }}
+          ref: ${{ inputs.flow_ref }}
+          path: .flow
+          token: ${{ secrets.FLOW_REPO_TOKEN || github.token }}
+      - run: mv .flow "$RUNNER_TEMP/flow"
+      - uses: astral-sh/setup-uv@v6
+      - name: Project setup
+        run: ${{ inputs.setup }}
+      - name: Gate
+        env:
+          GATE: ${{ inputs.gate }}
+          RUFF_OUTPUT_FORMAT: github
+        run: python3 "$RUNNER_TEMP/flow/ci/run_gate.py" --command "$GATE" --result "$RUNNER_TEMP/gate.json"
+      - id: read
+        run: |
+          python3 -c 'import json,sys; g=json.load(open(sys.argv[1])); print("state=" + g["state"]); print("headline=" + g["headline"].replace("\n", " "))' "$RUNNER_TEMP/gate.json" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gate
+          path: ${{ runner.temp }}/gate.json
+          retention-days: 14
+
+  # A step that does not build is not worth a reviewer's time or the plan's usage.
+  skipped:
+    needs: [prepare, gate]
+    if: always() && needs.prepare.result == 'success' && needs.gate.outputs.state != 'pass'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: gate
+          path: gate
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "### Flow review skipped: the gate failed"
+            echo
+            if [ -f gate/gate.json ]; then
+              python3 -c 'import json; g=json.load(open("gate/gate.json")); print(g["headline"]); print(); print(g["details"])'
+            else
+              echo "The gate job broke before it wrote a result; see the run."
+            fi
+            echo
+            echo "Fix the gate, then comment \`/review\` again."
+          } > body.md
+          gh pr comment "$PR" -R "$REPO" --body-file body.md
+
+  lens:
+    needs: [prepare, gate]
+    if: needs.gate.outputs.state == 'pass'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -130,9 +203,10 @@ jobs:
           AGENT: ${{ inputs.agent }}
           BRIEF: ${{ needs.prepare.outputs.brief }}
           BUDGET: ${{ inputs.budget_usd }}
+          GATE_RESULT: ${{ needs.gate.outputs.headline }}
         run: |
           python3 "$RUNNER_TEMP/flow/ci/run_lens.py" --lens "$LENS" --agent "$AGENT" --brief "$BRIEF" \
-            --flow "$RUNNER_TEMP/flow" --budget "$BUDGET" --out "$RUNNER_TEMP/out/$LENS.json"
+            --flow "$RUNNER_TEMP/flow" --budget "$BUDGET" --gate "$GATE_RESULT" --out "$RUNNER_TEMP/out/$LENS.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -141,8 +215,8 @@ jobs:
           retention-days: 14
 
   merge:
-    needs: [prepare, lens]
-    if: always() && needs.prepare.result == 'success'
+    needs: [prepare, gate, lens]
+    if: always() && needs.prepare.result == 'success' && needs.gate.outputs.state == 'pass'
     runs-on: ubuntu-latest
     permissions:
       contents: read
