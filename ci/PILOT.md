@@ -25,20 +25,30 @@ A comment `/review specs/<feature>/stepN-brief.md [lens,lens,...]` on a PR, by t
   repositories, and give the project a secret `FLOW_REPO_TOKEN`. That secret is a fine-grained
   token with "Contents: read" on this repo only.
 
-## The step-size check
+## The step scorecard
 One PR per step (the user, 2026-11-27): a step's PR has the feature branch as its base, and the
-feature's PR to `main` holds no unreviewed code. `size.yml`, called on every `pull_request` event,
-counts the PR's changed lines (added plus deleted) by kind with `ci/pr_size.py`:
+feature's PR to `main` holds no unreviewed code. `scorecard.yml`, called on every `pull_request`
+event, runs three deterministic checks (no model, seconds) and keeps one PR comment and one
+status:
 
-- **source** lines count: a warning over 400 (label `large`), a failed check over 800;
-- **tests** are reported, never capped, so that writing fewer tests is never a way to fit;
-- **other** files (specs, docs) are reported; **ignored** files (generated, lock files) are left out.
+- **size** (`ci/pr_size.py`): only source lines count, a warning over 400 (label `large`) and a
+  failure over 800; tests are reported, never capped, so writing fewer tests is never a way to fit.
+  The cap prompts a choice, never a squeeze: split at a natural seam, or add the label
+  `size-exempt` and a line `Size exempt: <reason>` to the PR description.
+- **scenarios** (`ci/scenarios.py`): a test cites its scenario (`Scenario: <name>.` in its
+  docstring, or pytest-bdd). It fails on a citation of no scenario, a citation the PR dropped, a
+  scenario added with no test, and, on the feature's PR into the default branch, any scenario of
+  that feature (`specs/<feature>/`, from the branch `feature/<feature>`) with no test.
+- **interface** (`ci/interface.py`): the top-level names of the public modules (no `_` in the
+  path), compared with the base by `ast`. Any change fails unless the PR description has
+  `Interface change: <spec folder>` and every changed name appears in a Markdown file there.
 
-The cap prompts a choice, never a squeeze: split the step at a natural seam, where each part still
-adds behavior, or add the label `size-exempt` and a line `Size exempt: <reason>` to the PR
-description. The comment also shows test lines per source line, the first sign of a gamed cap.
-The plan's and the brief's side (a size per step, the writer's stop) waits for a parallel copy of
-the workflow skill.
+The plan's and the brief's side (a size per step, the writer's stop) goes into a parallel copy of
+the workflow skill; the existing skills and agents do not change.
+
+Gotcha: a pull_request run uses the workflow file of the PR's test merge with its base. A PR
+opened before the caller workflow reached the base gets no run, even when edited, until its
+branch is updated from the base.
 
 ## What the pilot measures
 - Recall per lens against the sandbox's planted defects (the answer key is kept outside every

@@ -1,20 +1,21 @@
-# The step-size check (ci/PILOT.md): one PR per step, its source lines held to a cap. No model
-# runs here; it takes seconds. A project calls it on every pull_request event.
-name: flow-size
+# The step scorecard (ci/PILOT.md): deterministic checks of one step's PR, merged into one comment
+# and one status. No model runs here; it takes seconds. A project calls it on every pull_request
+# event.
+name: flow-scorecard
 
 on:
   workflow_call:
     inputs:
       source:
-        description: "Globs of the source files, comma-separated; only these count."
+        description: "Globs of the source files, comma-separated: counted for size, read for the interface."
         type: string
         default: "src/*"
       tests:
-        description: "Globs of the test files: reported, never capped."
+        description: "Globs of the test files: reported for size, never capped; read for citations."
         type: string
         default: "tests/*,*/tests/*,*test_*.py"
       ignored:
-        description: "Globs left out: generated and lock files."
+        description: "Globs left out of the size: generated and lock files."
         type: string
         default: "uv.lock,*.lock"
       warn:
@@ -38,38 +39,59 @@ on:
 permissions: {}
 
 jobs:
-  size:
+  scorecard:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: read
       pull-requests: write
       issues: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: head
       - uses: actions/checkout@v4
         with:
           repository: ${{ inputs.flow_repo }}
           ref: ${{ inputs.flow_ref }}
           path: flow
           token: ${{ secrets.FLOW_REPO_TOKEN || github.token }}
-      - name: Count
+      - name: Check out the merge base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base="$(git -C head merge-base "$BASE_SHA" HEAD)"
+          git -C head worktree add --detach "$RUNNER_TEMP/base" "$base"
+      - name: Run the checks
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           BODY: ${{ github.event.pull_request.body }}
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          INTO_DEFAULT: ${{ github.event.pull_request.base.ref == github.event.repository.default_branch }}
           SOURCE: ${{ inputs.source }}
           TESTS: ${{ inputs.tests }}
           IGNORED: ${{ inputs.ignored }}
           WARN: ${{ inputs.warn }}
           FAIL: ${{ inputs.fail }}
         run: |
+          mkdir -p results
+          printf '%s' "$BODY" > body.txt
           gh api --paginate --slurp "repos/$REPO/pulls/$PR/files" \
             | python3 -c 'import json,sys; print(json.dumps([f for page in json.load(sys.stdin) for f in page]))' > files.json
-          printf '%s' "$BODY" > body.txt
           python3 flow/ci/pr_size.py --files files.json --labels "$LABELS" --body body.txt \
             --source "$SOURCE" --tests "$TESTS" --ignored "$IGNORED" --warn "$WARN" --fail "$FAIL" \
-            --comment comment.md --result result.json
+            --result results/size.json
+          final=""; [ "$INTO_DEFAULT" = true ] && final="--final"
+          python3 flow/ci/scenarios.py --root head --base-root "$RUNNER_TEMP/base" --tests "$TESTS" \
+            --branch "$HEAD_BRANCH" $final --result results/scenarios.json
+          python3 flow/ci/interface.py --root head --base-root "$RUNNER_TEMP/base" --source "$SOURCE" \
+            --tests "$TESTS" --body body.txt --result results/interface.json
+          python3 flow/ci/scorecard.py --results results --comment comment.md --state state.txt
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
       - name: Comment and label
         env:
@@ -77,23 +99,23 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          # One comment per PR, edited on each push, so the PR does not fill with size reports.
+          # One comment per PR, edited on each push, so the PR does not fill with scorecards.
           existing="$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-            -q '.[] | select(.body | startswith("<!-- flow-size -->")) | .id' | head -n1)"
+            -q '.[] | select(.body | startswith("<!-- flow-scorecard -->")) | .id' | head -n1)"
           if [ -n "$existing" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@comment.md > /dev/null
           else
             gh api "repos/$REPO/issues/$PR/comments" -F body=@comment.md > /dev/null
           fi
-          state="$(python3 -c 'import json; print(json.load(open("result.json"))["state"])')"
+          size="$(python3 -c 'import json; print(json.load(open("results/size.json"))["state"])')"
           gh label create large -R "$REPO" --color FBCA04 --description "Step over the size warning" --force > /dev/null
-          if [ "$state" = pass ]; then
+          if [ "$size" = pass ]; then
             gh api -X DELETE "repos/$REPO/issues/$PR/labels/large" > /dev/null 2>&1 || true
           else
             gh api "repos/$REPO/issues/$PR/labels" -f "labels[]=large" > /dev/null
           fi
       - name: Verdict
         run: |
-          state="$(python3 -c 'import json; print(json.load(open("result.json"))["state"])')"
-          echo "step size: $state"
+          state="$(cat state.txt)"
+          echo "scorecard: $state"
           [ "$state" != fail ]

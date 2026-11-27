@@ -19,7 +19,6 @@ from pathlib import Path
 
 EXEMPT_LABEL = "size-exempt"
 EXEMPT_REASON = re.compile(r"^[ \t]*size exempt:[ \t]*(\S.*)$", re.IGNORECASE | re.MULTILINE)
-MARKER = "<!-- flow-size -->"
 
 
 class Kind(StrEnum):
@@ -111,39 +110,37 @@ def judge(source_lines: int, warn: int, fail: int, labels: list[str], body: str)
     )
 
 
-def report(tallies: dict[Kind, Tally], verdict: Verdict, warn: int, fail: int) -> str:
-    """The PR comment: the verdict, then the counts per kind."""
+def details(tallies: dict[Kind, Tally], warn: int, fail: int) -> str:
+    """The counts per kind, for the scorecard's details."""
     source, tests = tallies[Kind.SOURCE], tallies[Kind.TESTS]
     ratio = f"{tests.lines / source.lines:.1f}" if source.lines else "–"
     rows = [f"| {kind} | {tallies[kind].lines} | {tallies[kind].files} |" for kind in Kind]
     return "\n".join(
         [
-            MARKER,
-            f"### Step size: {verdict.state}",
-            "",
-            verdict.message,
-            "",
             "| kind | lines changed | files |",
             "|---|---|---|",
             *rows,
             "",
-            f"Test lines per source line: {ratio}. Only source lines count: warning over {warn}, "
-            f"cap {fail}.",
-            "",
+            f"Test lines per source line: {ratio}. Only source lines count: warning over {warn}, cap {fail}.",
         ]
     )
 
 
 def main() -> int:
-    """Write the comment and the result; exit 1 only on a failed check."""
+    """Write the check's result for the scorecard."""
     args = _arguments()
     patterns = Patterns(_globs(args.source), _globs(args.tests), _globs(args.ignored))
     files = json.loads(Path(args.files).read_text())
     tallies = tally(files, patterns)
     labels = [label for label in args.labels.split(",") if label]
     verdict = judge(tallies[Kind.SOURCE].lines, args.warn, args.fail, labels, Path(args.body).read_text())
-    Path(args.comment).write_text(report(tallies, verdict, args.warn, args.fail))
-    result = {"state": verdict.state, **{f"{kind}_lines": tallies[kind].lines for kind in Kind}}
+    result = {
+        "check": "size",
+        "state": verdict.state,
+        "headline": verdict.message,
+        "details": details(tallies, args.warn, args.fail),
+        **{f"{kind}_lines": tallies[kind].lines for kind in Kind},
+    }
     Path(args.result).write_text(json.dumps(result))
     print(f"{verdict.state}: {verdict.message}")
     return 0
@@ -163,7 +160,6 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--ignored", default="")
     parser.add_argument("--warn", type=int, default=400)
     parser.add_argument("--fail", type=int, default=800)
-    parser.add_argument("--comment", required=True)
     parser.add_argument("--result", required=True)
     return parser.parse_args()
 
