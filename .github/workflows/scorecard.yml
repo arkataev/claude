@@ -95,41 +95,19 @@ jobs:
           ref: ${{ inputs.flow_ref }}
           path: flow
           token: ${{ secrets.FLOW_REPO_TOKEN || github.token }}
-      - name: Check out the merge base
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          base="$(git -C head merge-base "$BASE_SHA" HEAD)"
-          git -C head worktree add --detach "$RUNNER_TEMP/base" "$base"
       - name: Run the checks
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_DIR: head
+          OUT: results
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-          BODY: ${{ github.event.pull_request.body }}
-          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-          INTO_DEFAULT: ${{ github.event.pull_request.base.ref == github.event.repository.default_branch }}
           SOURCE: ${{ inputs.source }}
           TESTS: ${{ inputs.tests }}
           IGNORED: ${{ inputs.ignored }}
           WARN: ${{ inputs.warn }}
           FAIL: ${{ inputs.fail }}
-        run: |
-          # A failed API call must stop here, not reach a script as if it were data.
-          set -o pipefail
-          mkdir -p results
-          printf '%s' "$BODY" > body.txt
-          gh api --paginate --slurp "repos/$REPO/pulls/$PR/files" \
-            | python3 -c 'import json,sys; print(json.dumps([f for page in json.load(sys.stdin) for f in page]))' > files.json
-          python3 flow/ci/pr_size.py --files files.json --labels "$LABELS" --body body.txt \
-            --source "$SOURCE" --tests "$TESTS" --ignored "$IGNORED" --warn "$WARN" --fail "$FAIL" \
-            --result results/size.json
-          final=""; [ "$INTO_DEFAULT" = true ] && final="--final"
-          python3 flow/ci/scenarios.py --root head --base-root "$RUNNER_TEMP/base" --tests "$TESTS" \
-            --branch "$HEAD_BRANCH" $final --result results/scenarios.json
-          python3 flow/ci/interface.py --root head --base-root "$RUNNER_TEMP/base" --source "$SOURCE" \
-            --tests "$TESTS" --body body.txt --result results/interface.json
+        run: bash flow/ci/run_checks.sh
       - uses: actions/upload-artifact@v4
         with:
           name: result-checks

@@ -21,6 +21,16 @@ on:
         description: "The reviewer agent of the project's flow: reviewer or solid-reviewer."
         type: string
         default: "reviewer"
+      source:
+        description: "The scorecard's source globs, so the reviewer sees the rows the PR shows."
+        type: string
+        default: "src/*"
+      tests:
+        type: string
+        default: "tests/*,*/tests/*,*test_*.py"
+      ignored:
+        type: string
+        default: "uv.lock,*.lock"
       setup:
         description: "The project's install command, run before the gate."
         type: string
@@ -93,13 +103,14 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       state: ${{ steps.read.outputs.state }}
-      headline: ${{ steps.read.outputs.headline }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare.outputs.head }}
+          fetch-depth: 0
       - uses: actions/checkout@v4
         with:
           repository: ${{ inputs.flow_repo }}
@@ -114,14 +125,34 @@ jobs:
         env:
           GATE: ${{ inputs.gate }}
           RUFF_OUTPUT_FORMAT: github
-        run: python3 "$RUNNER_TEMP/flow/ci/run_gate.py" --command "$GATE" --result "$RUNNER_TEMP/gate.json"
+        run: python3 "$RUNNER_TEMP/flow/ci/run_gate.py" --command "$GATE" --result "$RUNNER_TEMP/scorecard/gate.json"
       - id: read
         run: |
-          python3 -c 'import json,sys; g=json.load(open(sys.argv[1])); print("state=" + g["state"]); print("headline=" + g["headline"].replace("\n", " "))' "$RUNNER_TEMP/gate.json" >> "$GITHUB_OUTPUT"
+          python3 -c 'import json,sys; g=json.load(open(sys.argv[1])); print("state=" + g["state"])' "$RUNNER_TEMP/scorecard/gate.json" >> "$GITHUB_OUTPUT"
+      # The reviewers get the scorecard's rows, so they spend no findings on what it reports.
+      # A check that breaks here leaves the review to run without its row.
+      - name: Scorecard checks
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_DIR: .
+          OUT: ${{ runner.temp }}/scorecard
+          REPO: ${{ github.repository }}
+          PR: ${{ inputs.pr }}
+          SOURCE: ${{ inputs.source }}
+          TESTS: ${{ inputs.tests }}
+          IGNORED: ${{ inputs.ignored }}
+        run: bash "$RUNNER_TEMP/flow/ci/run_checks.sh"
+      - name: Summary for the reviewers
+        run: |
+          python3 "$RUNNER_TEMP/flow/ci/scorecard.py" --results "$RUNNER_TEMP/scorecard" \
+            --comment "$RUNNER_TEMP/comment.md" --state "$RUNNER_TEMP/state.txt" --summary "$RUNNER_TEMP/scorecard/summary.txt"
+          cat "$RUNNER_TEMP/scorecard/summary.txt"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: gate
-          path: ${{ runner.temp }}/gate.json
+          name: scorecard
+          path: ${{ runner.temp }}/scorecard/
           retention-days: 14
 
   # A step that does not build is not worth a reviewer's time or the plan's usage.
@@ -135,8 +166,8 @@ jobs:
       - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: gate
-          path: gate
+          name: scorecard
+          path: scorecard
       - env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr }}
@@ -145,8 +176,8 @@ jobs:
           {
             echo "### Flow review skipped: the gate failed"
             echo
-            if [ -f gate/gate.json ]; then
-              python3 -c 'import json; g=json.load(open("gate/gate.json")); print(g["headline"]); print(); print(g["details"])'
+            if [ -f scorecard/gate.json ]; then
+              python3 -c 'import json; g=json.load(open("scorecard/gate.json")); print(g["headline"]); print(); print(g["details"])'
             else
               echo "The gate job broke before it wrote a result; see the run."
             fi
@@ -189,6 +220,10 @@ jobs:
         run: |
           npm install -g "@anthropic-ai/claude-code@$CLAUDE_VERSION"
           bash "$RUNNER_TEMP/flow/ci/install_flow.sh" "$RUNNER_TEMP/flow"
+      - uses: actions/download-artifact@v4
+        with:
+          name: scorecard
+          path: ${{ runner.temp }}/scorecard
       - name: Make the PR's change uncommitted, as the reviewer agent reads it
         env:
           BASE: ${{ needs.prepare.outputs.base }}
@@ -203,10 +238,9 @@ jobs:
           AGENT: ${{ inputs.agent }}
           BRIEF: ${{ needs.prepare.outputs.brief }}
           BUDGET: ${{ inputs.budget_usd }}
-          GATE_RESULT: ${{ needs.gate.outputs.headline }}
         run: |
           python3 "$RUNNER_TEMP/flow/ci/run_lens.py" --lens "$LENS" --agent "$AGENT" --brief "$BRIEF" \
-            --flow "$RUNNER_TEMP/flow" --budget "$BUDGET" --gate "$GATE_RESULT" --out "$RUNNER_TEMP/out/$LENS.json"
+            --flow "$RUNNER_TEMP/flow" --budget "$BUDGET" --scorecard "$RUNNER_TEMP/scorecard/summary.txt" --out "$RUNNER_TEMP/out/$LENS.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

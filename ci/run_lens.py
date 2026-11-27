@@ -14,8 +14,13 @@ from pathlib import Path
 PROMPT = """Review the change for the brief {brief}.
 
 {lens}
-The caller ran the gate in CI just now, on this same commit: {gate}. Do not run it again; report
-this result as the gate's.
+The caller ran the gate and the step scorecard in CI just now, on this same commit:
+
+{scorecard}
+Do not run the gate again; report its row as the gate's result. Every row is already on the PR:
+do not report again what a row reports (a scenario with no citing test, the size, a public name).
+Spend your findings on what no script sees, such as whether a citing test really checks its
+scenario.
 
 This is a CI run on a pull request. The change under review is the working-tree diff against the
 PR's base (`git diff` plus the untracked files in `git status`). There is no designer to ask and
@@ -41,7 +46,7 @@ def main() -> int:
     flow, home = Path(args.flow), Path(args.claude_home)
     agent = AgentFile.read(home / "agents" / f"{args.agent}.md")
     skills = {name: (home / "skills" / name / "SKILL.md").read_text() for name in agent.skills}
-    prompt = PROMPT.format(brief=args.brief, gate=args.gate, lens=(flow / "ci/lenses" / f"{args.lens}.md").read_text())
+    prompt = PROMPT.format(brief=args.brief, scorecard=Path(args.scorecard).read_text(), lens=(flow / "ci/lenses" / f"{args.lens}.md").read_text())
     command = review_command(args.agent, agent, skills, (flow / "ci/findings.schema.json").read_text(), args.budget)
     started = time.monotonic()
     result = _run(command, prompt)
@@ -130,7 +135,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--claude-home", default=str(Path.home() / ".claude"))
     parser.add_argument("--out", required=True)
     parser.add_argument("--budget", default="3")
-    parser.add_argument("--gate", required=True, help="the gate's result, as the CI ran it")
+    parser.add_argument("--scorecard", required=True, help="the scorecard's rows, as the CI ran them")
     return parser.parse_args()
 
 

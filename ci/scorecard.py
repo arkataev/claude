@@ -31,12 +31,23 @@ def comment(results: list[dict[str, str]]) -> str:
     return "\n".join(parts) + "\n"
 
 
+def summary(results: list[dict[str, str]]) -> str:
+    """The rows as plain text for a reviewer's prompt, with the details of every row that did not pass."""
+    lines = [f"- {r['check']}: {r['state']}: {r['headline']}" for r in results]
+    for result in results:
+        if result["state"] != "pass" and result["details"]:
+            lines += ["", f"{result['check']}, in detail:", result["details"]]
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
-    """Write the comment and the overall state."""
+    """Write the comment, the reviewer's summary and the overall state."""
     args = _arguments()
     results = [json.loads(path.read_text()) for path in Path(args.results).glob("*.json")]
     results.sort(key=lambda r: ORDER.index(r["check"]) if r["check"] in ORDER else len(ORDER))
     Path(args.comment).write_text(comment(results))
+    if args.summary:
+        Path(args.summary).write_text(summary(results))
     Path(args.state).write_text(overall(results))
     print(f"scorecard: {overall(results)}")
     return 0
@@ -47,6 +58,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--results", required=True, help="the folder of the checks' result files")
     parser.add_argument("--comment", required=True)
     parser.add_argument("--state", required=True)
+    parser.add_argument("--summary", help="also write the rows as plain text for a reviewer")
     return parser.parse_args()
 
 
