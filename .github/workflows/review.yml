@@ -1,0 +1,163 @@
+# The pilot of the CI review (ci/PILOT.md): the reviewer agent run once per lens on a PR, the
+# findings merged and posted as one PR review. A project calls it from its own workflow on a
+# `/review <brief>` comment.
+name: flow-review
+
+on:
+  workflow_call:
+    inputs:
+      pr:
+        type: number
+        required: true
+      command:
+        description: "The comment that asked for the review: `/review <brief path>`."
+        type: string
+        required: true
+      lenses:
+        type: string
+        default: '["tests", "correctness", "design"]'
+      setup:
+        description: "The project's install command, run before the gate."
+        type: string
+        default: "uv sync --locked"
+      flow_repo:
+        type: string
+        default: "arkataev/claude"
+      flow_ref:
+        description: "Keep equal to the ref in the caller's `uses:` line."
+        type: string
+        default: "feature/flow-ci-pilot"
+      claude_version:
+        type: string
+        default: "2.1.332"
+      budget_usd:
+        description: "Per lens; the run stops past it."
+        type: string
+        default: "3"
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+      FLOW_REPO_TOKEN:
+        description: "Read access to the flow repo, needed only while it is private."
+        required: false
+
+permissions: {}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    outputs:
+      brief: ${{ steps.read.outputs.brief }}
+      head: ${{ steps.read.outputs.head }}
+      base: ${{ steps.read.outputs.base }}
+    steps:
+      - id: read
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMAND: ${{ inputs.command }}
+          PR: ${{ inputs.pr }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          brief="$(printf '%s' "$COMMAND" | head -n1 | awk '{print $2}')"
+          case "$brief" in
+            ''|*[!A-Za-z0-9._/-]*|/*|*..*) echo "::error::usage: /review <brief path in the repo>"; exit 1 ;;
+          esac
+          echo "brief=$brief" >> "$GITHUB_OUTPUT"
+          gh pr view "$PR" -R "$REPO" --json headRefOid,baseRefName \
+            -q '"head=\(.headRefOid)\nbase=\(.baseRefName)"' >> "$GITHUB_OUTPUT"
+          gh pr comment "$PR" -R "$REPO" --body "Flow review started for \`$brief\`: $RUN_URL"
+
+  lens:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        lens: ${{ fromJSON(inputs.lenses) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.head }}
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.flow_repo }}
+          ref: ${{ inputs.flow_ref }}
+          path: .flow
+          token: ${{ secrets.FLOW_REPO_TOKEN || github.token }}
+      # Out of the workspace, so the reviewer sees neither the flow nor its own output as part of
+      # the change.
+      - run: mv .flow "$RUNNER_TEMP/flow"
+      - uses: astral-sh/setup-uv@v6
+      - name: Project setup
+        run: ${{ inputs.setup }}
+      - name: Install Claude Code and the flow
+        env:
+          CLAUDE_VERSION: ${{ inputs.claude_version }}
+        run: |
+          npm install -g "@anthropic-ai/claude-code@$CLAUDE_VERSION"
+          bash "$RUNNER_TEMP/flow/ci/install_flow.sh" "$RUNNER_TEMP/flow"
+      - name: Make the PR's change uncommitted, as the reviewer agent reads it
+        env:
+          BASE: ${{ needs.prepare.outputs.base }}
+        run: |
+          git fetch --no-tags origin "$BASE"
+          git reset --mixed "$(git merge-base "origin/$BASE" HEAD)"
+          git status --short
+      - name: Review
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          LENS: ${{ matrix.lens }}
+          BRIEF: ${{ needs.prepare.outputs.brief }}
+          BUDGET: ${{ inputs.budget_usd }}
+        run: |
+          python3 "$RUNNER_TEMP/flow/ci/run_lens.py" --lens "$LENS" --brief "$BRIEF" \
+            --flow "$RUNNER_TEMP/flow" --budget "$BUDGET" --out "$RUNNER_TEMP/out/$LENS.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lens-${{ matrix.lens }}
+          path: ${{ runner.temp }}/out/
+          retention-days: 14
+
+  merge:
+    needs: [prepare, lens]
+    if: always() && needs.prepare.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.flow_repo }}
+          ref: ${{ inputs.flow_ref }}
+          path: flow
+          token: ${{ secrets.FLOW_REPO_TOKEN || github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lens-*
+          merge-multiple: true
+          path: lenses
+      - name: Merge and post
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          REPO: ${{ github.repository }}
+          HEAD: ${{ needs.prepare.outputs.head }}
+        run: |
+          gh pr diff "$PR" -R "$REPO" > pr.diff
+          python3 flow/ci/merge_findings.py --lenses lenses --diff pr.diff --pr "$PR" \
+            --commit "$HEAD" --out findings.json --review review.json
+          gh api "repos/$REPO/pulls/$PR/reviews" --input review.json > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: findings
+          path: findings.json
+          retention-days: 90

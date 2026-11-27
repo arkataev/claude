@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "properties": {
+    "gate": {
+      "type": "object",
+      "description": "The result of the gate the project's CLAUDE.md names.",
+      "properties": {
+        "passed": { "type": "boolean" },
+        "summary": { "type": "string", "description": "One line: the command and its counts." }
+      },
+      "required": ["passed", "summary"]
+    },
+    "findings": {
+      "type": "array",
+      "description": "Every finding of the report, one item each. Empty when nothing was found.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string", "description": "Repo-relative path." },
+          "line": { "type": "integer", "minimum": 0, "description": "1-based line in the changed file; 0 when no line fits." },
+          "kind": { "type": "string", "enum": ["gap", "bug", "nit", "guard"], "description": "gap: a scenario, test or line no test sees (Pass 1); bug: a defect (Pass 2) or a rule breach; nit: style; guard: a check a linter or guard test could make." },
+          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "rule": { "type": "string", "description": "The rule, scenario or checklist item it breaks, by name (a CLAUDE.md section, an ADR, a scenario)." },
+          "summary": { "type": "string", "description": "The defect in one sentence." },
+          "failure": { "type": "string", "description": "Inputs or state -> wrong outcome." },
+          "fix": { "type": "string", "description": "The fix in one line." },
+          "verified": { "type": "string", "enum": ["verified", "by_reading"] }
+        },
+        "required": ["file", "line", "kind", "severity", "rule", "summary", "failure", "fix", "verified"]
+      }
+    },
+    "clean_areas": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "One line per area checked and found clean."
+    },
+    "report": { "type": "string", "description": "The review skill's report, as text (at most 60 lines)." }
+  },
+  "required": ["gate", "findings", "clean_areas", "report"]
+}
