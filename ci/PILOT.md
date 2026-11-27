@@ -52,8 +52,22 @@ status:
 comment that shows why; if it passes, the reviewers get its result and do not run it again (the
 review skills already say "run it unless the caller just did").
 
-The plan's and the brief's side (a size per step, the writer's stop) goes into a parallel copy of
-the workflow skill; the existing skills and agents do not change.
+## The flow that uses it
+`/solid-workflow-ci` and its agents `solid-critic-ci`, `solid-writer-ci` and `solid-reviewer-ci`
+are copies of `/solid-workflow` and its agents; the originals do not change (the user's rule for
+workflow trials). What the copies add:
+- the plan marks each step small, medium or large (no line counts), names a large step's natural
+  seam, and lists the public names each step adds, changes or removes; the critic checks both;
+- each step is a branch `step/<name>/<N>` and a PR into `feature/<name>` (a branch
+  `feature/<name>/stepN` cannot exist beside `feature/<name>` in git);
+- the brief states the size budget and the Interface list; the writer stops at the budget instead
+  of squeezing the code, and changes no public name the list does not name;
+- the review runs in CI on `/review`; triage verdicts are replies on the review's comments;
+- the reviewer spends no findings on what the scorecard checks, and has one more finding type:
+  code squeezed to fit the size budget.
+
+The copies live on this branch only, so no project's installed flow has them; trying the flow
+locally needs them installed (merging just these new files into `main` changes no existing flow).
 
 Gotcha: a pull_request run uses the workflow file of the PR's test merge with its base. A PR
 opened before the caller workflow reached the base gets no run, even when edited, until its
@@ -77,6 +91,13 @@ branch is updated from the base.
   code and its test. Grouping by root cause needs a model step.
 - The lenses strayed into each other's areas. Whether they beat one whole reviewer is the
   question of run 2: `/review <brief>` (3 lenses) against `/review <brief> whole`.
+
+- Run 3 (the gate before the reviewers): the CI gate takes 2 to 3 s on the sandbox; the whole
+  reviewer reported "passed in CI … not re-run" and cost $0.30 API-equivalent against $0.50 in
+  run 2 (one sample each). A red gate skipped the review with a comment; Ruff's finding showed on
+  its line through `RUFF_OUTPUT_FORMAT=github`.
+- A job's `permissions:` are its whole grant: listing a PR's files needs `pull-requests: read`,
+  and a 403 piped into a script reads as data unless the step sets `pipefail`.
 
 ## Open questions the pilot answers
 - Does `--max-budget-usd` stop a run under a subscription token?
