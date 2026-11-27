@@ -99,6 +99,19 @@ branch is updated from the base.
 - A job's `permissions:` are its whole grant: listing a PR's files needs `pull-requests: read`,
   and a 403 piped into a script reads as data unless the step sets `pipefail`.
 
+- Run 4 (the scorecard's rows in the reviewer's prompt): `solid-reviewer-ci` dropped the finding
+  the scorecard reports ("already reports that, so it is not counted again") and kept the two no
+  script sees: a citing test that does not test its scenario, and the case bug. Told only that a
+  scorecard exists, it had reported the missing citations again.
+
+## The end-to-end sandbox
+`arkataev/flow-sandbox` (private, `~/dev/flow-sandbox`): a lending library in the solid shape,
+with a done feature (catalog) and one on the roadmap (loans: borrowing, a race for the last copy,
+an overdue list with a statement budget, interface changes). It is for running a real feature
+through `/solid-workflow-ci` from spec to merge. Its `.claude/` links the copies from this
+worktree (git-ignored), so a session started in the sandbox has them and no installed flow
+changes.
+
 ## Open questions the pilot answers
 - Does `--max-budget-usd` stop a run under a subscription token?
 - Does a lens keep to its focus, or does each one do the whole review?
