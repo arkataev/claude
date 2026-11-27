@@ -25,6 +25,21 @@ A comment `/review specs/<feature>/stepN-brief.md [lens,lens,...]` on a PR, by t
   repositories, and give the project a secret `FLOW_REPO_TOKEN`. That secret is a fine-grained
   token with "Contents: read" on this repo only.
 
+## The step-size check
+One PR per step (the user, 2026-11-27): a step's PR has the feature branch as its base, and the
+feature's PR to `main` holds no unreviewed code. `size.yml`, called on every `pull_request` event,
+counts the PR's changed lines (added plus deleted) by kind with `ci/pr_size.py`:
+
+- **source** lines count: a warning over 400 (label `large`), a failed check over 800;
+- **tests** are reported, never capped, so that writing fewer tests is never a way to fit;
+- **other** files (specs, docs) are reported; **ignored** files (generated, lock files) are left out.
+
+The cap prompts a choice, never a squeeze: split the step at a natural seam, where each part still
+adds behavior, or add the label `size-exempt` and a line `Size exempt: <reason>` to the PR
+description. The comment also shows test lines per source line, the first sign of a gamed cap.
+The plan's and the brief's side (a size per step, the writer's stop) waits for a parallel copy of
+the workflow skill.
+
 ## What the pilot measures
 - Recall per lens against the sandbox's planted defects (the answer key is kept outside every
   repo the runners see).
