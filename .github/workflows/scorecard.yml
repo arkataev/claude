@@ -82,6 +82,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,6 +116,8 @@ jobs:
           WARN: ${{ inputs.warn }}
           FAIL: ${{ inputs.fail }}
         run: |
+          # A failed API call must stop here, not reach a script as if it were data.
+          set -o pipefail
           mkdir -p results
           printf '%s' "$BODY" > body.txt
           gh api --paginate --slurp "repos/$REPO/pulls/$PR/files" \
