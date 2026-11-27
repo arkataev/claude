@@ -10,12 +10,17 @@ on:
         type: number
         required: true
       command:
-        description: "The comment that asked for the review: `/review <brief path>`."
+        description: "The comment that asked for the review: `/review <brief path> [lens,lens,...]`."
         type: string
         required: true
       lenses:
+        description: "The lenses when the comment names none, comma-separated."
         type: string
-        default: '["tests", "correctness", "design"]'
+        default: "tests,correctness,design"
+      agent:
+        description: "The reviewer agent of the project's flow: reviewer or solid-reviewer."
+        type: string
+        default: "reviewer"
       setup:
         description: "The project's install command, run before the gate."
         type: string
@@ -50,6 +55,7 @@ jobs:
       pull-requests: write
     outputs:
       brief: ${{ steps.read.outputs.brief }}
+      lenses: ${{ steps.read.outputs.lenses }}
       head: ${{ steps.read.outputs.head }}
       base: ${{ steps.read.outputs.base }}
     steps:
@@ -57,6 +63,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           COMMAND: ${{ inputs.command }}
+          DEFAULT_LENSES: ${{ inputs.lenses }}
           PR: ${{ inputs.pr }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -65,10 +72,16 @@ jobs:
           case "$brief" in
             ''|*[!A-Za-z0-9._/-]*|/*|*..*) echo "::error::usage: /review <brief path in the repo>"; exit 1 ;;
           esac
+          lenses="$(printf '%s' "$COMMAND" | head -n1 | awk '{print $3}')"
+          lenses="${lenses:-$DEFAULT_LENSES}"
+          case "$lenses" in
+            *[!a-z,-]*|,*|*,|*,,*) echo "::error::lenses are names split by commas: tests,correctness"; exit 1 ;;
+          esac
           echo "brief=$brief" >> "$GITHUB_OUTPUT"
+          echo "lenses=$(printf '%s' "$lenses" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split(",")))')" >> "$GITHUB_OUTPUT"
           gh pr view "$PR" -R "$REPO" --json headRefOid,baseRefName \
             -q '"head=\(.headRefOid)\nbase=\(.baseRefName)"' >> "$GITHUB_OUTPUT"
-          gh pr comment "$PR" -R "$REPO" --body "Flow review started for \`$brief\`: $RUN_URL"
+          gh pr comment "$PR" -R "$REPO" --body "Flow review started for \`$brief\`, lenses \`$lenses\`: $RUN_URL"
 
   lens:
     needs: prepare
@@ -79,7 +92,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lens: ${{ fromJSON(inputs.lenses) }}
+        lens: ${{ fromJSON(needs.prepare.outputs.lenses) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -114,10 +127,11 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           LENS: ${{ matrix.lens }}
+          AGENT: ${{ inputs.agent }}
           BRIEF: ${{ needs.prepare.outputs.brief }}
           BUDGET: ${{ inputs.budget_usd }}
         run: |
-          python3 "$RUNNER_TEMP/flow/ci/run_lens.py" --lens "$LENS" --brief "$BRIEF" \
+          python3 "$RUNNER_TEMP/flow/ci/run_lens.py" --lens "$LENS" --agent "$AGENT" --brief "$BRIEF" \
             --flow "$RUNNER_TEMP/flow" --budget "$BUDGET" --out "$RUNNER_TEMP/out/$LENS.json"
       - uses: actions/upload-artifact@v4
         if: always()

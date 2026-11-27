@@ -101,6 +101,8 @@ def _lens_summary(lens: dict[str, Any]) -> dict[str, Any]:
     structured = claude.get("structured_output") or {}
     return {
         "lens": lens["lens"],
+        "agent": lens.get("agent"),
+        "preloaded": sorted(lens.get("preloaded") or {}),
         "ok": bool(structured),
         "error": lens.get("error") or (None if structured else "no structured output"),
         "gate": structured.get("gate"),
@@ -138,9 +140,11 @@ def _body(summary: dict[str, Any], elsewhere: list[dict[str, Any]], lenses: list
         for lens in summary["lenses"]
     ]
     parts = [
-        f"### Flow review (pilot): {len(summary['findings'])} findings from {len(summary['lenses'])} lenses",
+        f"### Flow review (pilot): {len(summary['findings'])} findings from {len(summary['lenses'])} lenses of `{_agent(summary)}`",
         "",
-        "| lens | gate | findings | cost | time | error |",
+        f"Preloaded skills: {_preloaded(summary)}. Cost is the API-equivalent at list price, not a charge.",
+        "",
+        "| lens | gate | findings | API-equiv. cost | time | error |",
         "|---|---|---|---|---|---|",
         *rows,
         "",
@@ -155,6 +159,15 @@ def _body(summary: dict[str, Any], elsewhere: list[dict[str, Any]], lenses: list
             continue
         parts += ["", f"<details><summary>{lens['lens']} report</summary>", "", "```", report, "```", "</details>"]
     return "\n".join(parts)[:BODY_LIMIT]
+
+
+def _agent(summary: dict[str, Any]) -> str:
+    return ", ".join(sorted({lens["agent"] or "?" for lens in summary["lenses"]}))
+
+
+def _preloaded(summary: dict[str, Any]) -> str:
+    names = sorted({name for lens in summary["lenses"] for name in lens["preloaded"]})
+    return ", ".join(f"`{name}`" for name in names) or "none"
 
 
 def _gate(gate: dict[str, Any] | None) -> str:

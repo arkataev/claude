@@ -4,7 +4,7 @@ A trial of the flow's review on GitHub Actions. Nothing here changes the flow th
 today: this lives on the branch `feature/flow-ci-pilot`, and the installed flow is `main`.
 
 ## What it does
-A comment `/review specs/<feature>/stepN-brief.md` on a PR, by the repo's owner, starts it:
+A comment `/review specs/<feature>/stepN-brief.md [lens,lens,...]` on a PR, by the repo's owner, starts it:
 
 1. `prepare` reads the brief path from the comment, pins the PR's head commit and says on the PR
    that the review started.
@@ -33,8 +33,18 @@ A comment `/review specs/<feature>/stepN-brief.md` on a PR, by the repo's owner,
 - Cost (`total_cost_usd`), turns and time per lens, and the subscription's usage after a run.
 - What breaks: anything the CI run does differently from a local review.
 
+## Learned so far
+- Run 1 (`reviewer`, 3 lenses, the toy PR): all 4 planted and 4 unplanted defects found, no false
+  alarm, 1.5 minutes, about $0.79 API-equivalent (on a subscription, usage, not a charge).
+- `claude -p --agent X` runs X as the main session, and there its `skills:` are only listed, not
+  loaded as they are for a subagent. Run 1 had no skill text. `run_lens.py` now reads the agent's
+  `skills:` and `effort:` and passes them itself (`--append-system-prompt`, `--effort`).
+- Grouping findings by line distance joins different defects and splits one defect across the
+  code and its test. Grouping by root cause needs a model step.
+- The lenses strayed into each other's areas. Whether they beat one whole reviewer is the
+  question of run 2: `/review <brief>` (3 lenses) against `/review <brief> whole`.
+
 ## Open questions the pilot answers
-- Does `claude -p --agent reviewer` load the agent's preloaded skills (`review`, `mutants`)?
 - Does `--max-budget-usd` stop a run under a subscription token?
 - Does a lens keep to its focus, or does each one do the whole review?
 - Is a mixed reset to the merge base a good stand-in for "the uncommitted diff"?
