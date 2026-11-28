@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 PROMPT = """Review the change for the brief {brief}.
 
@@ -120,10 +121,27 @@ def _run(command: list[str], prompt: str) -> dict[str, object]:
         claude = None
     return {
         "exit_code": process.returncode,
-        "error": None if claude else "no JSON on stdout",
+        "error": failure(process.returncode, claude),
         "stderr_tail": process.stderr[-2000:],
         "claude": claude,
     }
+
+
+def failure(exit_code: int, claude: dict[str, Any] | None) -> str | None:
+    """Why the run gave no review, or None when it gave one.
+
+    A refused login still prints a JSON result, with `is_error` and the API's message, so a parsed
+    result is not by itself a review.
+    """
+    if claude is None:
+        return f"no JSON on stdout (exit {exit_code})"
+    if claude.get("is_error"):
+        return f"claude: {str(claude.get('result') or claude.get('subtype'))[:300]}"
+    if exit_code != 0:
+        return f"exit {exit_code}"
+    if not claude.get("structured_output"):
+        return "no structured output"
+    return None
 
 
 def _arguments() -> argparse.Namespace:

@@ -276,10 +276,17 @@ jobs:
         run: |
           gh pr diff "$PR" -R "$REPO" > pr.diff
           python3 flow/ci/merge_findings.py --lenses lenses --diff pr.diff --pr "$PR" \
-            --commit "$HEAD" --out findings.json --review review.json
+            --commit "$HEAD" --out findings.json --review review.json --state state.txt
           gh api "repos/$REPO/pulls/$PR/reviews" --input review.json > /dev/null
       - uses: actions/upload-artifact@v4
         with:
           name: findings
           path: findings.json
           retention-days: 90
+      - name: Verdict
+        run: |
+          # A lens that gave no review (a refused login, a timeout) fails the run after the review
+          # says so, so a silent reviewer never shows as a green, clean review.
+          state="$(cat state.txt)"
+          echo "review: $state"
+          [ "$state" = ok ]

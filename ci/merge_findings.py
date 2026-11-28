@@ -29,8 +29,15 @@ def main() -> int:
     summary = {"pr": args.pr, "commit": args.commit, "lenses": [_lens_summary(lens) for lens in lenses], "findings": findings}
     Path(args.out).write_text(json.dumps(summary, indent=2))
     Path(args.review).write_text(json.dumps(_review(summary, changed, lenses)))
-    print(f"{len(lenses)} lenses, {len(findings)} findings")
+    unanswered = silent_lenses(summary)
+    Path(args.state).write_text("failed" if unanswered or not lenses else "ok")
+    print(f"{len(lenses)} lenses, {len(findings)} findings, {len(unanswered)} gave no review")
     return 0
+
+
+def silent_lenses(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """The lenses that gave no review, so that their silence is never read as a clean review."""
+    return [lens for lens in summary["lenses"] if not lens["ok"]]
 
 
 def changed_lines(diff: str) -> dict[str, set[int]]:
@@ -139,9 +146,11 @@ def _body(summary: dict[str, Any], elsewhere: list[dict[str, Any]], lenses: list
         f"| {lens['lens']} | {_gate(lens['gate'])} | {lens['findings']} | {_money(lens['cost_usd'])} | {lens['duration_s']} s | {lens['error'] or ''} |"
         for lens in summary["lenses"]
     ]
-    parts = [
-        f"### Flow review (pilot): {len(summary['findings'])} findings from {len(summary['lenses'])} lenses of `{_agent(summary)}`",
-        "",
+    parts = [_headline(summary), ""]
+    if silent := silent_lenses(summary):
+        reasons = "; ".join(f"{lens['lens']}: {lens['error']}" for lens in silent)
+        parts += [f"**Not a full review.** {len(silent)} of {len(summary['lenses'])} lenses gave none ({reasons}). Fix the error and comment `/review` again.", ""]
+    parts += [
         f"Preloaded skills: {_preloaded(summary)}. Cost is the API-equivalent at list price, not a charge.",
         "",
         "| lens | gate | findings | API-equiv. cost | time | error |",
@@ -159,6 +168,15 @@ def _body(summary: dict[str, Any], elsewhere: list[dict[str, Any]], lenses: list
             continue
         parts += ["", f"<details><summary>{lens['lens']} report</summary>", "", "```", report, "```", "</details>"]
     return "\n".join(parts)[:BODY_LIMIT]
+
+
+def _headline(summary: dict[str, Any]) -> str:
+    lenses = summary["lenses"]
+    answered = len(lenses) - len(silent_lenses(summary))
+    if answered == 0:
+        return f"### Flow review (pilot) FAILED: no lens of `{_agent(summary)}` gave a review"
+    found = f"{len(summary['findings'])} findings from {answered} lenses of `{_agent(summary)}`"
+    return f"### Flow review (pilot): {found}" + ("" if answered == len(lenses) else f", {len(lenses) - answered} failed")
 
 
 def _agent(summary: dict[str, Any]) -> str:
@@ -188,6 +206,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--commit", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--review", required=True)
+    parser.add_argument("--state", required=True, help="written: ok, or failed when a lens gave no review")
     return parser.parse_args()
 
 

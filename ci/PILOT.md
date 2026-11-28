@@ -104,6 +104,13 @@ branch is updated from the base.
   script sees: a citing test that does not test its scenario, and the case bug. Told only that a
   scorecard exists, it had reported the missing citations again.
 
+- Run 5 (the sandbox's loans step 1, the first end-to-end PR): the scorecard's interface row
+  flagged a public `SCHEMA` the plan had not named; the designer made it private and the plan
+  names the removal, all before any review. The review itself never ran: the repo's token was
+  refused (`401 Invalid bearer token`), and the run went green with "0 findings". A refused login
+  still prints a JSON result (`is_error: true`), so "the JSON parsed" is not "the reviewer
+  reviewed". Now a lens without a review is named in the review's title and fails the run.
+
 ## The end-to-end sandbox
 `arkataev/flow-sandbox` (private, `~/dev/flow-sandbox`): a lending library in the solid shape,
 with a done feature (catalog) and one on the roadmap (loans: borrowing, a race for the last copy,

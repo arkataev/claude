@@ -1,3 +1,4 @@
 .DS_Store
 # skills claude.ai syncs down; not authored here
 synced/
+__pycache__/
