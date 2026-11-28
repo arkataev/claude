@@ -110,6 +110,11 @@ branch is updated from the base.
   refused (`401 Invalid bearer token`), and the run went green with "0 findings". A refused login
   still prints a JSON result (`is_error: true`), so "the JSON parsed" is not "the reviewer
   reviewed". Now a lens without a review is named in the review's title and fails the run.
+  Rerun with a good token: 4 findings, no row of the scorecard repeated, $1.09 API-equivalent,
+  2.5 minutes. The one gap (F1, `main.py`'s local date: no test sees it, 85 of 85 pass with it
+  replaced) was proved by a mutant in a throwaway copy, with a control mutant to show the copy
+  ran its own source. The three nits are on the tests' claims (a fault loop that could run zero
+  times, citations of Acceptance lines the spec lacks, a name that says more than the test checks).
 
 ## The end-to-end sandbox
 `arkataev/flow-sandbox` (private, `~/dev/flow-sandbox`): a lending library in the solid shape,
