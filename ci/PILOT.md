@@ -116,6 +116,17 @@ branch is updated from the base.
   ran its own source. The three nits are on the tests' claims (a fault loop that could run zero
   times, citations of Acceptance lines the spec lacks, a name that says more than the test checks).
 
+- Run 6 (loans step 2: the refusals and the race; 98 source lines, 3.8 test lines per source
+  line): three hand mutants of the store, each killed by the test the plan named for it
+  (`BEGIN IMMEDIATE` to `BEGIN` by the race test, the copies trigger by its schema guard, the
+  member index by the query-plan test). The review's one medium finding was a loosened guard in a
+  test helper: the statement log dropped an INSERT equal to the one before it, to hide the
+  trigger's repeated trace lines, so a doubled write would pass the budget. No script and no
+  mutant of the source finds that; the reviewer's "no check loosened" rule did. It also reported
+  three lines no test sees (proved by mutants), and missed one nit a mutant run showed: a schema
+  guard closes its connection after `pytest.raises`, so its failure leaks a `ResourceWarning` into
+  another test. $0.93 API-equivalent, 3.6 minutes.
+
 ## The end-to-end sandbox
 `arkataev/flow-sandbox` (private, `~/dev/flow-sandbox`): a lending library in the solid shape,
 with a done feature (catalog) and one on the roadmap (loans: borrowing, a race for the last copy,
