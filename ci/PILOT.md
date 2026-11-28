@@ -127,6 +127,16 @@ branch is updated from the base.
   guard closes its connection after `pytest.raises`, so its failure leaks a `ResourceWarning` into
   another test. $0.93 API-equivalent, 3.6 minutes.
 
+- Run 7 (loans step 3: return; 56 source lines): 5 low findings, all on what the tests claim (a
+  citation of a scenario whose When step is a borrow, return's unavailable path citing nothing,
+  budget parameters named for the wrong axis), 4 accepted. The rejected one (no test reads a
+  subcommand's help text) was sent to the user for the feature's close rather than decided by
+  the designer. Hand mutants of the return path: 5 of 6 killed; the survivor (delete by the
+  loan's book rather than the asked book) is equivalent, since `take_back` returns the loan of
+  that book. Step 2's rejected F3 (a held loan's member and date reach no test) is already seen
+  by step 3's service tests. $0.73 API-equivalent, 2.2 minutes; the steps shrink (333, 98, 56
+  source lines) while the test ratio grows.
+
 ## The end-to-end sandbox
 `arkataev/flow-sandbox` (private, `~/dev/flow-sandbox`): a lending library in the solid shape,
 with a done feature (catalog) and one on the roadmap (loans: borrowing, a race for the last copy,
