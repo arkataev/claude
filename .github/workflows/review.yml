@@ -156,7 +156,7 @@ jobs:
           retention-days: 14
 
   # A step that does not build is not worth a reviewer's time or the plan's usage.
-  skipped:
+  gate-failed:
     needs: [prepare, gate]
     if: always() && needs.prepare.result == 'success' && needs.gate.outputs.state != 'pass'
     runs-on: ubuntu-latest
